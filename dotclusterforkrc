@@ -1,0 +1,79 @@
+	
+# This is the config file for the 'clusterfork' application which executes
+# commands on a range of machines defined as below.  Use 'clusterfork -h'
+# to view the help file
+# Comments start with a pound ('#') sign and //cannot share the same line//
+# with other configuration data.
+# Strings do not need to be quoted unles they contain commas
+
+[ADMIN]
+    # RPMDB - file that lists the RPMs that cf has been used to install
+    RPMDB = "/home/hmangala/BDUC_RPM_LIST.DB"
+
+    # ALLNODESFILE holds a list of ALL the IP nodes that this will support.
+    # this should actually be generated outside of cf and written out if required.
+    # Hmmm - should this be handled?
+    # ALLNODESFILE = /home/hmangala/ALLNODESFILE
+
+    # emails to notify of newly installed packages
+    EMAIL_LIST = "hmangala@uci.edu"
+#, jsaska@uci.edu, lopez@uci.edu"
+
+    # how many IP addresses to list on a line - 5 is pretty good.
+    IPLISTWIDTH = 5
+
+    # command to install apps - if this is found in the command, triggers a routine to
+    # email admins with updated install info.
+    INSTALLCMD = "yum install -y"
+    PATH  = "/usr/local/bin:/sge62/bin/lx24-amd64:/usr/bin:/bin:/usr/sbin"
+
+[SGE]
+    # std SGE env variables that you can set here.  In the usual ENV setting,
+    # these are prefixed with 'SGE_'.  ie SGE_CELL.
+    CELL          = bduc_nacs
+    JOB_DIR       = /sge62/bduc_nacs/spool/qmaster/jobs
+    EXECD_PORT    = 537
+    QMASTER_PORT  = 536
+    ROOT          = /sge62
+
+[APPS]
+    yum   = /usr/bin/yum
+    diff  = /usr/bin/diff
+    mutt  = /usr/bin/mutt
+    mc    = /usr/bin/mc
+#    scut  = /usr/local/bin/scut
+#    qhost = /sge62/bin/lx24-amd64/qhost
+
+
+[IPRANGE]
+    # these need quotes if they have commas (commas indicate array els)
+    ADC_2X = a64-[104:140] ; a64-[168:181]
+    ADC_4X = a64-[141:167]
+    ICS_2X = a64-[001:040]
+    CLAWS = claw[1:7]
+    INT = a64-[001:002]
+    ADC_48X = a64-182
+#    ADC_48n = 10.255.78.91
+    IPCC = a64-[168:181]
+    # for GROUPS based on scripts, the value must be in the form of:
+    #   [SCRIPT:"whatever the script is"]
+    # with required escaping being embedded in the submitted script
+    # (see below for an example in QHOST)
+    # QHOST = SCRIPT:"ssh hmangala@bduc-login "qhost |grep amd64 | grep -v ' - ' |grep -v claw | scut --c1=0 | perl -e 's/\n/ /gi' -p""
+
+    # following QHOST example uses the host-local SGE 'qhost' and 'scut' binaries
+    # to generate a list of hosts to process and filters only 'a64' hosts
+    # which are responsive (don't have ' - ' entries).
+    # QHOST = "SCRIPT:/sge62/bin/lx24-amd64/qhost |grep a64 | grep -v ' - ' | /usr/local/bin/scut --c1=0 | perl -e 's/\n/ /gi' -p"
+    QHOST = "SCRIPT:qhost |grep a64 | grep -v ' - ' | scut --c1=0 | perl -e 's/\n/ /gi' -p"
+    # Set temporarily dead nodes in here if required.
+    IGNORE = ''
+
+[GROUPS]
+    	
+# GROUPS can be composed of primary IPRANGE groups as well as other
+    # GROUP groups as long as they have been previously defined.
+    ALL_2X = ICS_2X + ADC_2X
+    CENTOS = ICS_2X + ADC_2X + ADC_4X + ADC_48X
+    ADC_ALL = ADC_2X + ADC_4X + ADC_48X + CLAWS
+
