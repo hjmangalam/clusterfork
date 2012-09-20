@@ -13,6 +13,8 @@ v1.72, August 20th, 2012
 
 // update svn from BDUC
 // fileroot="/home/hjm/nacs/bduc/clusterfork/clusterfork"; scp ${fileroot}.txt ${fileroot}.pl hmangala@claw1:~/bduc/trunk/sge; ssh hmangala@bduc-login 'cd ~/bduc/trunk/sge; svn update; svn commit -m "new mods to clusterfork files"'
+// update the github
+// gitroot="/home/hjm/gits/clusterfork"; git push https://github.com/hjmangalam/clusterfork.git
 
 .Summary
 *******************************************************************************
