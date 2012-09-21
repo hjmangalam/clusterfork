@@ -1,4 +1,3 @@
-	
 # This is the config file for the 'clusterfork' application which executes
 # commands on a range of machines defined as below.  Use 'clusterfork -h'
 # to view the help file
@@ -17,7 +16,6 @@
 
     # emails to notify of newly installed packages
     EMAIL_LIST = "hmangala@uci.edu"
-#, jsaska@uci.edu, lopez@uci.edu"
 
     # how many IP addresses to list on a line - 5 is pretty good.
     IPLISTWIDTH = 5
