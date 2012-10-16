@@ -1,7 +1,7 @@
 clusterfork: a cluster admin tool
 =================================
 by Harry Mangalam <harry.mangalam@uci.edu>
-v1.72, August 20th, 2012
+v1.74, Oct 16th, 2012
 :icons:
 
 //Harry Mangalam mailto:harry.mangalam@uci.edu[harry.mangalam@uci.edu]
@@ -13,8 +13,6 @@ v1.72, August 20th, 2012
 
 // update svn from BDUC
 // fileroot="/home/hjm/nacs/bduc/clusterfork/clusterfork"; scp ${fileroot}.txt ${fileroot}.pl hmangala@claw1:~/bduc/trunk/sge; ssh hmangala@bduc-login 'cd ~/bduc/trunk/sge; svn update; svn commit -m "new mods to clusterfork files"'
-// update the github
-// gitroot="/home/hjm/gits/clusterfork"; git push https://github.com/hjmangalam/clusterfork.git
 
 .Summary
 *******************************************************************************
@@ -74,7 +72,7 @@ Why use clusterfork rather than the tools noted link:#alternatives[below]?
 - tracks running hosts to identify hung or trailing hosts.
 - can be config'ed to write results files to a specific dir or in the current dir
 - will delete empty results files before presenting them for evaluation (but note them in the Summary).
-- can be scripted to log the usual output, returning the results directory so that the execution results  can be evaluated programmatically.
+- can be scripted (with specified timeout) to log the usual output, returning the results directory so that the execution results can be evaluated programmatically.
 
 Prerequisites
 -------------
@@ -361,6 +359,12 @@ The options are spelled out fairly well by the 'cf -h' command.  However, here t
           the result dir at the end of the run.  The usual STDOUT is saved as:
           <result_dir>/LOG.
 
+          --timeout #  (or #s, #m, #h) 
+          sets the timout period, especially when using --script so that 
+          a few hanging nodes can't keep clusterfork going forever.  By default 
+          set to 600s=10m when --script is used, 1h when used interactively. 
+          If no s|m|h is given, seconds are assumed. Fractions (0.01h) OK.
+
       --debug ..... causes voluminous debug messages to spew forth
 
 -------------------------------------------------------------
@@ -528,6 +532,9 @@ clusterfork is a fairly new program and while it works pretty well, there are so
 [[versions]]
 Versions & Changes
 ------------------
+# 1.74 - (10.15.12) shortcut final pointless 2s cycle at end 
+# 1.73 - (10.04.12) set a timeout for --script version to prevent infinite hanging.
+# 1.72 - (08.20.12) small mod to delete empty files before asking to view them.
 - 1.71 - (08.17.12) don't even bother including zero-len results (they're empty fer gadsakes).
 - 1.70 - (08.07.12) optionally delete zero-len files before viewing in mc for efficiency. The summary still contains the list of zero-len files if you need them. 
 - 1.69 - (07.11.12) fixed small bug in specifying multiple hosts in the IPRANGE stanzas and updated initial .clusterforkrc file for better examples.
