@@ -771,8 +771,8 @@ asciidoc.install(2);
 <h1>clusterfork: a cluster admin tool</h1>
 <span id="author">by Harry Mangalam</span><br>
 <span id="email" class="monospaced">&lt;<a href="mailto:harry.mangalam@uci.edu">harry.mangalam@uci.edu</a>&gt;</span><br>
-<span id="revnumber">version 1.72,</span>
-<span id="revdate">August 20th, 2012</span>
+<span id="revnumber">version 1.74,</span>
+<span id="revdate">Oct 16th, 2012</span>
 <div id="toc">
   <div id="toctitle">Table of Contents</div>
   <noscript><p><b>JavaScript must be enabled in your browser to display the table of contents.</b></p></noscript>
@@ -811,7 +811,14 @@ benefit from other options or interface tweaks, please let me know.</p></div>
 <h2 id="_availability">1. Availability</h2>
 <div class="sectionbody">
 <div class="paragraph"><p>clusterfork is released under the <a href="http://fsf.org">Free Software Foundation&#8217;s</a> <a href="http://www.gnu.org/licenses/agpl-3.0.html">Affero General Public License (GPL) version 3</a>.</p></div>
-<div class="paragraph"><p>The Perl code is <a href="http://moo.nac.uci.edu/~hjm/clusterfork/clusterfork.pl">available here</a>.</p></div>
+<div class="paragraph"><p>The Perl files and docs are available from github:</p></div>
+<div class="listingblock">
+<div class="content monospaced">
+<pre>git clone https://github.com/hjmangalam/clusterfork.git
+
+# and recent copies are usually stored here:
+http://moo.nac.uci.edu/~hjm/clusterfork/clusterfork.pl</pre>
+</div></div>
 </div>
 </div>
 <div class="sect1">
@@ -909,7 +916,7 @@ will delete empty results files before presenting them for evaluation (but note 
 </li>
 <li>
 <p>
-can be scripted to log the usual output, returning the results directory so that the execution results  can be evaluated programmatically.
+can be scripted (with specified timeout) to log the usual output, returning the results directory so that the execution results can be evaluated programmatically.
 </p>
 </li>
 </ul></div>
@@ -1254,6 +1261,12 @@ a <em>~.clusterforkrc</em> file from somewhere else).  Just follow the instructi
           the result dir at the end of the run.  The usual STDOUT is saved as:
           &lt;result_dir&gt;/LOG.
 
+          --timeout #  (or #s, #m, #h)
+          sets the timout period, especially when using --script so that
+          a few hanging nodes can't keep clusterfork going forever.  By default
+          set to 600s=10m when --script is used, 1h when used interactively.
+          If no s|m|h is given, seconds are assumed. Fractions (0.01h) OK.
+
       --debug ..... causes voluminous debug messages to spew forth</pre>
 </div></div>
 </div>
@@ -1431,108 +1444,29 @@ in versions prior to 1.55, if the host/IP specification included a negation of t
 <div class="sect1">
 <h2 id="versions">13. Versions &amp; Changes</h2>
 <div class="sectionbody">
-<div class="ulist"><ul>
-<li>
-<p>
-1.71 - (08.17.12) don&#8217;t even bother including zero-len results (they&#8217;re empty fer gadsakes).
-</p>
-</li>
-<li>
-<p>
-1.70 - (08.07.12) optionally delete zero-len files before viewing in mc for efficiency. The summary still contains the list of zero-len files if you need them.
-</p>
-</li>
-<li>
-<p>
-1.69 - (07.11.12) fixed small bug in specifying multiple hosts in the IPRANGE stanzas and updated initial .clusterforkrc file for better examples.
-</p>
-</li>
-<li>
-<p>
-1.68 - (05.03.12) added config to specify which xterm thingy you want to use. Set as gnome-terminal to begin with. change it to xterm, terminator, konsole, etc. Also, fork the $XTERM so that it leaves the current term able to do something else.
-</p>
-</li>
-<li>
-<p>
-1.67 - (04.23.12) added <em>--script</em> option to do everything silently and NO query to see results. ie: "cf --script" ends by returning the results dir so that the rest of the script can process the results.
-</p>
-</li>
-<li>
-<p>
-1.66 - (01.24.12) corrected subtle PID sed error that led to correct number but empty host list (PIDs sometimes listed with leading space which confused cut)
-</p>
-</li>
-<li>
-<p>
-1.65 - (01.20.12) added $RESULTS_DIR to write all results.
-</p>
-</li>
-<li>
-<p>
-1.64 - (01.01.12) added hostname tracking to ID hung or trailing hosts.
-</p>
-</li>
-<li>
-<p>
-1.63 - (12.28.11) fix <em>;</em> delimited IPRANGES bug, single hostname problem/process .
-</p>
-</li>
-<li>
-<p>
-1.62 - (12.19.11) added --delay to slow the speed of execution of successive commands.
-</p>
-</li>
-<li>
-<p>
-1.61 - redirect STDERR into file along with STDOUT.
-</p>
-</li>
-<li>
-<p>
-1.60 - fixed a few more oddball characters that bugger up the dir creation.
-</p>
-</li>
-<li>
-<p>
-1.59 - fixed system redirection syntax to be more robust(?) across systems.
-</p>
-</li>
-<li>
-<p>
-1.58 - added --hosts=[quoted space-delimited hostnames] option to process a few random hosts
-</p>
-</li>
-<li>
-<p>
-1.57 - fixed bug in code that searches for alt config file.  Now only writes the local config file if there is none AND there&#8217;s no alt config file specified.
-</p>
-</li>
-<li>
-<p>
-1.56 - fixed bug introduced in 1.55 that would end the run prematurely - wouldn&#8217;t get to last number in series; typical off-by-one stupidity.
-</p>
-</li>
-<li>
-<p>
-1.55 - fixed bug where if last number in a series was negated, array would overrun, generating an undefined value. (ie a64-[001:040 -012 -013 -040])
-</p>
-</li>
-<li>
-<p>
-1.54 - handled single hostname spec in .clusterfork
-</p>
-</li>
-<li>
-<p>
-1.52 - added PID tracking and process waiting
-</p>
-</li>
-<li>
-<p>
-1.51 -  fixed $padlen for digits that did not have a leading <em>0</em>
-</p>
-</li>
-</ul></div>
+<div class="paragraph"><p># 1.74 - (10.15.12) shortcut final pointless 2s cycle at end
+# 1.73 - (10.04.12) set a timeout for --script version to prevent infinite hanging.
+# 1.72 - (08.20.12) small mod to delete empty files before asking to view them.
+- 1.71 - (08.17.12) don&#8217;t even bother including zero-len results (they&#8217;re empty fer gadsakes).
+- 1.70 - (08.07.12) optionally delete zero-len files before viewing in mc for efficiency. The summary still contains the list of zero-len files if you need them.
+- 1.69 - (07.11.12) fixed small bug in specifying multiple hosts in the IPRANGE stanzas and updated initial .clusterforkrc file for better examples.
+- 1.68 - (05.03.12) added config to specify which xterm thingy you want to use. Set as gnome-terminal to begin with. change it to xterm, terminator, konsole, etc. Also, fork the $XTERM so that it leaves the current term able to do something else.
+- 1.67 - (04.23.12) added <em>--script</em> option to do everything silently and NO query to see results. ie: "cf --script" ends by returning the results dir so that the rest of the script can process the results.
+- 1.66 - (01.24.12) corrected subtle PID sed error that led to correct number but empty host list (PIDs sometimes listed with leading space which confused cut)
+- 1.65 - (01.20.12) added $RESULTS_DIR to write all results.
+- 1.64 - (01.01.12) added hostname tracking to ID hung or trailing hosts.
+- 1.63 - (12.28.11) fix <em>;</em> delimited IPRANGES bug, single hostname problem/process .
+- 1.62 - (12.19.11) added --delay to slow the speed of execution of successive commands.
+- 1.61 - redirect STDERR into file along with STDOUT.
+- 1.60 - fixed a few more oddball characters that bugger up the dir creation.
+- 1.59 - fixed system redirection syntax to be more robust(?) across systems.
+- 1.58 - added --hosts=[quoted space-delimited hostnames] option to process a few random hosts
+- 1.57 - fixed bug in code that searches for alt config file.  Now only writes the local config file if there is none AND there&#8217;s no alt config file specified.
+- 1.56 - fixed bug introduced in 1.55 that would end the run prematurely - wouldn&#8217;t get to last number in series; typical off-by-one stupidity.
+- 1.55 - fixed bug where if last number in a series was negated, array would overrun, generating an undefined value. (ie a64-[001:040 -012 -013 -040])
+- 1.54 - handled single hostname spec in .clusterfork
+- 1.52 - added PID tracking and process waiting
+- 1.51 -  fixed $padlen for digits that did not have a leading <em>0</em></p></div>
 </div>
 </div>
 <div class="sect1">
@@ -1540,6 +1474,11 @@ in versions prior to 1.55, if the host/IP specification included a negation of t
 <div class="sectionbody">
 <div class="paragraph"><p>There are existing tools that do something similar:</p></div>
 <div class="ulist"><ul>
+<li>
+<p>
+<a href="http://www.gnu.org/software/parallel/">GNU parallel</a> - actually <em>cf</em> is not very much like <em>GNU parallel</em>, but <em>parallel</em> is such a spiffy project that it deserves mention.  while <em>cf</em> is spcifically a cluster admin tool, <em>parallel</em> is more of general purpose forking tool that provides a lot of the advantages of cluster computing without requiring a formal cluster, using arbitary execution nodes. If you have a lot of local nodes that are not organized into a formal cluster, <em>parallel</em> allows you to harness them in a very cluster-like way. <a href="http://www.youtube.com/playlist?list=PL284C9FF2488BC6D1">Videos even</a>
+</p>
+</li>
 <li>
 <p>
 <a href="http://code.google.com/p/pdsh/">pdsh</a> - pdsh is the nicest (and coincidentally, most like <em>cf</em>).  It&#8217;s compiled C and so runs very fast and handles the additional instances as threads instead of extra processes, so it&#8217;s better behaved when trying to kill off an in-process execution.  It also supports module plug-ins if you need that.  It has a host range specification that&#8217;s <em>almost</em> as slick as cf&#8217;s, but it lacks the results compilation/collation function of <em>cf</em> and the ability to <em>add</em> groups together. But a <em>very</em> nice utility, under ongoing development.
@@ -1583,15 +1522,15 @@ in versions prior to 1.55, if the host/IP specification included a negation of t
 <h2 id="_latest_version">15. Latest Version</h2>
 <div class="sectionbody">
 <div class="paragraph"><p>The latest version of the clusterfork code and documentation
-<a href="http://moo.nac.uci.edu/~hjm/clusterfork/clusterfork.html">will always be found here</a>.</p></div>
+<a href="http://moo.nac.uci.edu/~hjm/clusterfork/clusterfork.html">will always be found here</a> or <a href="https://github.com/hjmangalam/clusterfork">on Github</a></p></div>
 </div>
 </div>
 </div>
 <div id="footnotes"><hr></div>
 <div id="footer">
 <div id="footer-text">
-Version 1.72<br>
-Last updated 2012-09-19 16:14:01 PDT
+Version 1.74<br>
+Last updated 2012-10-16 15:26:50 PDT
 </div>
 </div>
 </body>
