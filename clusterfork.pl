@@ -3,7 +3,9 @@
 # Perldocs removed in favor of the help stanza below at ~ line 634
 # search for 'sub usage'
 
-# 1.72 - (08.20.12)small mod to delete empty files before asking to view them.
+# 1.74 - (10.15.12) shortcut final 2s cycle at end 
+# 1.73 - (10.04.12) set a timeout for --script version to prevent infinite hanging.
+# 1.72 - (08.20.12) small mod to delete empty files before asking to view them.
 # 1.71 - (08.17.12) don't even bother including zero-len results (they're empty fer gadsakes).
 # 1.70 - (08.07.12) optionally delete zero-len files before viewing in mc for efficiency.
 #        the summary still contains the list of zero-len files if you need them. 
@@ -51,12 +53,12 @@ $sz_lrng @lrng @l $n $u $exp $ttl_IPs $IPGRP $localrange %IPRHA $GRP $PRI_LIST
 @pri_names $nbr_pris $ttl $e $f $Ntarget @TARGET @TARGET_IPS @IParr $key $Nels
 $Nnames @Names $NOIPR $NONAMES %DONE $Nscrels  @script $altcfg $IPLISTWIDTH
 $subrange $NPSbits @PSbits $ver $cur_pid %pidhosts $RESULTS_DIR
-$PIDFILE $pidlist @PIDS $active $els $hosts $XTERM
+$PIDFILE $pidlist @PIDS $active $els $hosts $XTERM $TIMEOUT $TIMEOUT_STR
 );
 
 $version = <<VERSION;
 
-clusterfork.pl version 1.72
+clusterfork.pl version 1.74
 <http://moo.nac.uci.edu/~hjm/clusterfork/index.html>
 Copyright Harry Mangalam, OIT, UC Ivine, 2010-2012
 <harry.mangalam\@uci.edu>, <hjmangalam\@gmail.com>
@@ -86,6 +88,8 @@ $DELAY=0; # the number of s to delay between issuing commands.
 $DELAY_STR = "";
 $SCRIPT = 0;
 $LOG = 0;
+$TIMEOUT = 3600;
+$TIMEOUT_STR = "";
 
 &GetOptions(
 	"help!"        => \$help,       # dump usage, tips
@@ -100,6 +104,7 @@ $LOG = 0;
 	"hosts=s"      => \$hosts,
 	"debug!"       => \$DEBUG,
 	"script!"      => \$SCRIPT,
+	"timeout=s"    => \$TIMEOUT_STR,   # timeout, use same format, processing as delay, below
 	"delay=s"      => \$DELAY_STR, # delay betw issuing commands (to prevent saturation)
 );
 
@@ -108,20 +113,9 @@ if ($ver) {print $version; exit;}
 if ($fork == 0)  {$FORK = "NULL";$SCRIPT=0;} # if no fork, assume DON'T want $SCRIPT
 if ($fork == 1)  {$FORK = "FORK";}
 
-if ($DELAY_STR ne "" ){
-	my $dstr = $DELAY_STR;
-	$dstr =~ s/,//g; # strip commas
-	if ($dstr =~ /\d+(s|S)/){  # only digits or seconds
-		chop $dstr; $DELAY = $dstr;
-	} elsif ($dstr =~ /\d+(m|M)/) {
-		chop $dstr; $DELAY = $dstr * 60;
-	} elsif ($dstr =~ /\d+(h|H)/){
-		chop $dstr; $DELAY = $dstr * 3600;
-	} elsif ($dstr =~ /\d+/ && $dstr !~ /\D/) { $DELAY = $dstr; 
-	} else {
-		die "\n\nERROR: The '--delay' period can only be s, m, or h.  If you're trying to set up something to wait days between invocations, use cron.\n\ns";
-	}
-}
+if ($DELAY_STR ne "" ){$DELAY = &timestr($DELAY_STR);}
+# process timeout if set.  Also have to set it below if --script is called.
+if ($TIMEOUT_STR ne "" ){$TIMEOUT = &timestr($TIMEOUT_STR);}
 
 if ($DEBUG) {
 	print "DEBUG: # of args = $#ARGV \n";
@@ -344,6 +338,7 @@ if (defined $FORK && $FORK eq "FORK" && !defined $listgroup){
 if ($SCRIPT) { # if scripting, need to log output for afterwards.
 	open (LOG, "> $DATEDIR/LOG");
 	select(LOG); # and now all output goes to the LOG until a diff select().
+	if ($TIMEOUT == 0) {$TIMEOUT = 600;} # set a reasonable default
 }
 
 # Process targets specified with the commandline option
@@ -540,22 +535,25 @@ print "\n==========================================\n  # of processes at start: 
 
 my $secs = 0;
 while ($active > 1) { # '1' for 1 line of ps header without any processes
+	sleep 2; $secs += 2;	
 	# keep track of still-running hosts by filtering %pidhosts.
 	my $real_procs = 0;
 	my $PIDLIST = `ps -p $pidlist`;
 	$n = @l = split(/\s+/,`ps -p $pidlist |wc`); # get # of running background processes.
 	$active = $l[1]; # should really be '-1' but then would have to '+1'
-	$real_procs = $active - 1;
+   $real_procs = $active - 1;
 	my $tmpstr = `ps -p  $pidlist  |tail -n+2 | sed "s/^ *//;  s/ \{1,\}/ /g" | cut -f1 -d' '| tr "\n" " " `;
 	my $nn = my @ll = split (/\s+/, $tmpstr); # now in a list
-	print "\nWaiting for <= [$real_procs] hosts @ [$secs] sec:\n\t";
+	print "\nWaiting for [$real_procs] hosts @ [$secs] sec:\n\t";
 	my $t = 0;
 	foreach my $rpid (@ll){
 		$t++;
 		print "$pidhosts{$rpid} ";
 		if ($t > 10) {print "\n\t"; $t = 0} # insert a newline if it gets too wide.
 	}; 
-	sleep 2; $secs += 2;
+	if ($secs > $TIMEOUT) {
+		die "\n\n\nERROR: clusterfork ran longer than cutoff [--timeout=$TIMEOUT].\nIf run in a script, check $DATEDIR/LOG for zombie nodes.\n\n";
+	}
 }
 print "\n... All slave processes finished! \n\n";
 
@@ -698,6 +696,23 @@ sub GenIPArray($) {
 	return @all;
 }
 
+# timestr converts time spec like 3s 34m 7.5h to s.
+sub timestr ($){	
+	my $tstr = shift;
+	my $sec = 0;
+	$tstr =~ s/,//g; # strip commas
+	if ($tstr =~ /\d+(s|S)/){  # only digits or seconds
+		chop $tstr; $sec = $tstr; return $sec;
+	} elsif ($tstr =~ /\d+(m|M)/) {
+		chop $tstr; $sec = $tstr * 60; return $sec;
+	} elsif ($tstr =~ /\d+(h|H)/){
+		chop $tstr; $sec = $tstr * 3600; return $sec;
+	} elsif ($tstr =~ /\d+/ && $tstr !~ /\D/) { $sec = $tstr;  return $sec;
+	} else {
+		die "\n\nERROR: The '--delay' or '--timeout' period can only be s, m, or h.  If you're trying to set up something to wait days between invocations, use cron.\n\n";
+	}
+}
+
 #
 # call as host_loop($HOST, $CMD, $DATEDIR, $$CMD, $PIDFILE)
 sub host_loop($$$$$) {
@@ -811,8 +826,7 @@ Usage:  {sudo} clusterfork {options} 'remote command'
           introduces a this many (s)econds, (m)inutes, or (h)ours between successive 
           commands to nodes to prevent overutilization of resources.  ie between 
           initiating a 'yum -y upgrade' to prevent all the nodes from hitting a 
-          local repository simultaneously.  If no s|m|h is given, seconds are assumed.
-          Fractions (0.01h) are fine.
+          local repository simultaneously.  If no s|m|h is given, seconds are assumed. Fractions (0.01h) are fine.
       
       --listgroup=[GROUP,GROUP..] (GROUPs from config file)
           If no GROUP specified, dumps IP #s for ALL GROUPS.
@@ -836,6 +850,12 @@ Usage:  {sudo} clusterfork {options} 'remote command'
       --script runs the command as a script with all the normal screen output 
           sent to the LOG file in the output directory, along with all the normal
           output.  Verify that the command works before you run it with --script.
+          
+      --timeout #  (or #s, #m, #h) 
+          sets the timout period, especially when using --script so that 
+          a few hanging nodes can't keep clusterfork going forever.  By default 
+          set to 600s=10m when --script is used, 1h when used interactively. 
+          If no s|m|h is given, seconds are assumed. Fractions (0.01h) OK.
 
       --nofork .... Execs 'remote command' serially to each specified node and
           emits the output from each node as it's generated.  If executed with
