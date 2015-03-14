@@ -15,6 +15,7 @@ For example, the following line will show you the correctable and
 uncorrectable memory errors on the nodes 10.255.78.20 thru 10.255.78.60. 
 Change the IP range to your own and try it yourself.  Obviously, the
 machines have to be using the
+
 http://buttersideup.com/edacwiki/Main_Page [EDAC system].
 
 clusterfork --target=10.255.78.[20:60] 'cd /sys/devices/system/edac/mc \
