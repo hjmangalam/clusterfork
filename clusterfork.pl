@@ -3,12 +3,14 @@
 # Perldocs removed in favor of the help stanza below at ~ line 634
 # search for 'sub usage'
 
-# 1.74 - (10.15.12) shortcut final 2s cycle at end 
+# 1.75 - (11.29.12) add final timing line to LOG so can grep for it more easily.
+#         NB: DB version bumped to version 2.00
+# 1.74 - (10.15.12) shortcut final pointless 2s cycle at end
 # 1.73 - (10.04.12) set a timeout for --script version to prevent infinite hanging.
 # 1.72 - (08.20.12) small mod to delete empty files before asking to view them.
 # 1.71 - (08.17.12) don't even bother including zero-len results (they're empty fer gadsakes).
 # 1.70 - (08.07.12) optionally delete zero-len files before viewing in mc for efficiency.
-#        the summary still contains the list of zero-len files if you need them. 
+#        the summary still contains the list of zero-len files if you need them.
 # 1.69 - (07.11.12) fixed small bug in specifying multiple hosts in the IPRANGE stanzas and
 #        updated initial .clusterforkrc file for better examples.
 # 1.68 - (05.03.12) added config to specify which xterm thingy you want to use.
@@ -28,7 +30,7 @@
 # 1.60 - fixed a few more oddball characters that bugger up the dir creation.
 # 1.59 - fixed system redirection syntax to be more robust(?) across systems.
 # 1.58 - added --hosts=[quoted space-delimited hostnames] option to process a few random hosts
-# 1.57 - fixed bug in code that searches for alt config file.  Now only writes the 
+# 1.57 - fixed bug in code that searches for alt config file.  Now only writes the
 #        local config file if there is none AND there's no alt config file specified.
 # 1.56 - fixed bug introduced in 1.55 that would end the run prematurely - wouldn't get to last
 #        number in series; typical off-by-one stupidity.
@@ -58,7 +60,7 @@ $PIDFILE $pidlist @PIDS $active $els $hosts $XTERM $TIMEOUT $TIMEOUT_STR
 
 $version = <<VERSION;
 
-clusterfork.pl version 1.74
+clusterfork.pl version 1.75
 <http://moo.nac.uci.edu/~hjm/clusterfork/index.html>
 Copyright Harry Mangalam, OIT, UC Ivine, 2010-2012
 <harry.mangalam\@uci.edu>, <hjmangalam\@gmail.com>
@@ -129,7 +131,7 @@ if ($configfile ne ""){
 	    $cfg = new Config::Simple($configfile);
 	    $altcfg = 1;
 	} else {die "FATAL: Alt config file [$configfile] doesn't exist or it isn't readable.\n";}
-	
+
 # Read the $HOME/.clusterforkrc file to bring in the 'normal' values.
 # does it exist
 } elsif ($altcfg == 0 && -e "$HOME/.clusterforkrc" && -r "$HOME/.clusterforkrc") {
@@ -179,7 +181,7 @@ FIRSTTIME
 
     # how many IP addresses to list on a line - 5 is pretty good.
     IPLISTWIDTH = 5
-    
+
     # write all the results in this dir; coment out or assign to "" if you
     # want to write the results in the current working dir.
     # use fully qualified path; not '~/cf'.
@@ -224,7 +226,7 @@ FIRSTTIME
     IGNORE = "10.255.78.12 ; 10.255.78.48 ; 12.23.34.[22:25]"
     # or
     IGNORE = ""
-  
+
 
     # for GROUPS based on scripts, the value must be in the form of:
     #   [SCRIPT:"whatever the script is"]
@@ -354,7 +356,7 @@ if ($DEBUG) {print STDERR "INFO: Processing targets..\n";}
 
 # if target has a range implied by [....]
 # submit straight to the $NOIPR = 0; # record that we're targeting IP #s
-if (($target =~ /\[/ && $target =~ /\]/)|| ($hosts ne "NULL")) { 
+if (($target =~ /\[/ && $target =~ /\]/)|| ($hosts ne "NULL")) {
 	if ($hosts ne "NULL") {$Ntarget = @TARGET = split(/\s+/,$hosts);}
 	else {                 $Ntarget = @TARGET = &GenIPArray($target);}
 	$IPGRP = "CMDLINE";
@@ -535,27 +537,33 @@ print "\n==========================================\n  # of processes at start: 
 
 my $secs = 0;
 while ($active > 1) { # '1' for 1 line of ps header without any processes
-	sleep 2; $secs += 2;	
 	# keep track of still-running hosts by filtering %pidhosts.
 	my $real_procs = 0;
 	my $PIDLIST = `ps -p $pidlist`;
 	$n = @l = split(/\s+/,`ps -p $pidlist |wc`); # get # of running background processes.
-	$active = $l[1]; # should really be '-1' but then would have to '+1'
-   $real_procs = $active - 1;
+#	$active = $l[1]; # should really be '-1' but then would have to '+1'
+#	$real_procs = $active - 1;
 	my $tmpstr = `ps -p  $pidlist  |tail -n+2 | sed "s/^ *//;  s/ \{1,\}/ /g" | cut -f1 -d' '| tr "\n" " " `;
 	my $nn = my @ll = split (/\s+/, $tmpstr); # now in a list
-	print "\nWaiting for [$real_procs] hosts @ [$secs] sec:\n\t";
+	print "\nWaiting for <= [$real_procs] hosts @ [$secs] sec:\n\t";
 	my $t = 0;
 	foreach my $rpid (@ll){
 		$t++;
 		print "$pidhosts{$rpid} ";
 		if ($t > 10) {print "\n\t"; $t = 0} # insert a newline if it gets too wide.
-	}; 
+	};
+	$active = $l[1]; # should really be '-1' but then would have to '+1'
+	$real_procs = $active - 1;
+	sleep 2; $secs += 2;
+
 	if ($secs > $TIMEOUT) {
-		die "\n\n\nERROR: clusterfork ran longer than cutoff [--timeout=$TIMEOUT].\nIf run in a script, check $DATEDIR/LOG for zombie nodes.\n\n";
+		print "\n\n\nERROR: clusterfork ran longer than cutoff [--timeout=$TIMEOUT].\nIf run in a script, check $DATEDIR/LOG for zombie nodes.\n\n";
+		my $LOGTAIL =  `tail -22 $DATEDIR/LOG`;
+		die "LOG finishes with: $LOGTAIL\n\n";
 	}
 }
-print "\n... All slave processes finished! \n\n";
+$secs--;
+print "\n... Finished at [$secs]! \n\n";
 
 unlink $PIDFILE;  # don't need $PIDFILE anymore
 
@@ -598,10 +606,10 @@ if ($FORK eq "FORK"){
 	printf OUT "%20s  %3d  %s\n", $wch{$l[0]}, $n, $md5h{$key}; # wc #  host_list
    }
    close OUT;
-   
+
     # delete all the empty files now, so they're not left in the results dir if user doesn't want to see them.
 	opendir(DIR, "$DATEDIR");
-	my @FILES = readdir(DIR); 
+	my @FILES = readdir(DIR);
 	foreach my $f (@FILES){ if (-z "$DATEDIR/$f") { unlink "$DATEDIR/$f"; } }
 
    select(STDOUT);
@@ -638,7 +646,7 @@ sub GenIPArray($) {
 	# split multiple ranges ( 1.2.3.[11:25 34:56] ; 2.3.4.[134:167] ; 4.2.3.[197:233] )
 	$n = @l = split /\s*;\s*/, $ipstr; # must split on ';' for the /multiple/ ranges
 	# iterate thru each expansion  (1.2.3.[34:56] -> [1.2.3.34][ 1.2.3.35] .. [1.2.3.56]
-	
+
 	# now have to do checking on each type of range
 	foreach $subrange (@l) { # iter over ranges, can be different types as well (mixed IP, hostnames
 		$single = 0;
@@ -697,7 +705,7 @@ sub GenIPArray($) {
 }
 
 # timestr converts time spec like 3s 34m 7.5h to s.
-sub timestr ($){	
+sub timestr ($){
 	my $tstr = shift;
 	my $sec = 0;
 	$tstr =~ s/,//g; # strip commas
@@ -786,8 +794,8 @@ dated dir, each file labeled with the IP# of the node on which it has
 executed, along with a Summary file that contains the original command and
 some primitive analysis on the output files, clustering the files by 'wc' &
 'md5sum' to show which groups of outputs are identical or nearly so.
-The non-empty files can then be viewed via 'Midnight Commander' (mc), 
-in a new xterm or the same text terminal.  (The empty results files are 
+The non-empty files can then be viewed via 'Midnight Commander' (mc),
+in a new xterm or the same text terminal.  (The empty results files are
 deleted before you view the results in mc; but are noted in the Summary file.)
 
 COMMAND-LINE OPTIONS in detail
@@ -821,13 +829,13 @@ Usage:  {sudo} clusterfork {options} 'remote command'
           ie: --hosts='a64-111  a64-142  a64-183  a64-972'.  This will process
           them in the same way as '--target' above, but without having to spec
           the ranges.
-          
-      --delay=#  (or #s, #m, #h) 
-          introduces a this many (s)econds, (m)inutes, or (h)ours between successive 
-          commands to nodes to prevent overutilization of resources.  ie between 
-          initiating a 'yum -y upgrade' to prevent all the nodes from hitting a 
+
+      --delay=#  (or #s, #m, #h)
+          introduces a this many (s)econds, (m)inutes, or (h)ours between successive
+          commands to nodes to prevent overutilization of resources.  ie between
+          initiating a 'yum -y upgrade' to prevent all the nodes from hitting a
           local repository simultaneously.  If no s|m|h is given, seconds are assumed. Fractions (0.01h) are fine.
-      
+
       --listgroup=[GROUP,GROUP..] (GROUPs from config file)
           If no GROUP specified, dumps IP #s for ALL GROUPS.
           This option does not require a 'remote command' and ignores it
@@ -846,15 +854,15 @@ Usage:  {sudo} clusterfork {options} 'remote command'
              REMOTE_CMD-(20 chars of the command)-time_date
           and the output for each node will be directed into a separate file
           named for the IP number or hostname (whichever the input spec was).
-    
-      --script runs the command as a script with all the normal screen output 
+
+      --script runs the command as a script with all the normal screen output
           sent to the LOG file in the output directory, along with all the normal
           output.  Verify that the command works before you run it with --script.
-          
-      --timeout #  (or #s, #m, #h) 
-          sets the timout period, especially when using --script so that 
-          a few hanging nodes can't keep clusterfork going forever.  By default 
-          set to 600s=10m when --script is used, 1h when used interactively. 
+
+      --timeout #  (or #s, #m, #h)
+          sets the timout period, especially when using --script so that
+          a few hanging nodes can't keep clusterfork going forever.  By default
+          set to 600s=10m when --script is used, 1h when used interactively.
           If no s|m|h is given, seconds are assumed. Fractions (0.01h) OK.
 
       --nofork .... Execs 'remote command' serially to each specified node and
@@ -978,7 +986,7 @@ sub column_ranges($$) {
         foreach my $neg (@cols_neg) {
 	    for (my $pos=0; $pos<=$#cols_pos; $pos++) {
 		    if (abs($neg) == $cols_pos[$pos]) {
-		    $cols_pos[$pos] = -1; 
+		    $cols_pos[$pos] = -1;
 		}
             }
         }
