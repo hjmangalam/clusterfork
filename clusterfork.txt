@@ -10,7 +10,7 @@ v1.82, June 16, 2016
 
 // git status
 // git git add [files to include in the update]
-// git commit -a
+// git commit -a # commits the changes and adds the comments for the push
 // git push # to push changes back to github
 
 .Summary
