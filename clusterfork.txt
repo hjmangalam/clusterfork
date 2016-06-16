@@ -8,6 +8,10 @@ v1.82, June 16, 2016
 // this file is converted to the HTML via the command:
 // fileroot="/home/hjm/gits/clusterfork/clusterfork"; asciidoc -a icons -a toc2 -b html5 -a numbered  ${fileroot}.txt; scp ${fileroot}.html  ${fileroot}.txt  moo:~/public_html/clusterfork 
 
+// git status
+// git git add [files to include in the update]
+// git commit -a
+// git push # to push changes back to github
 
 .Summary
 *******************************************************************************
