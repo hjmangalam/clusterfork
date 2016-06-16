@@ -769,8 +769,8 @@ asciidoc.install(2);
 <h1>clusterfork: a cluster admin tool</h1>
 <span id="author">by Harry Mangalam</span><br>
 <span id="email" class="monospaced">&lt;<a href="mailto:harry.mangalam@uci.edu">harry.mangalam@uci.edu</a>&gt;</span><br>
-<span id="revnumber">version 1.81,</span>
-<span id="revdate">April 24th, 2016</span>
+<span id="revnumber">version 1.82,</span>
+<span id="revdate">June 16, 2016</span>
 <div id="toc">
   <div id="toctitle">Table of Contents</div>
   <noscript><p><b>JavaScript must be enabled in your browser to display the table of contents.</b></p></noscript>
@@ -782,15 +782,8 @@ asciidoc.install(2);
 <div class="sidebarblock">
 <div class="content">
 <div class="title">Summary</div>
-<div class="paragraph"><p><em>clusterfork</em> (aka <em>cf</em>) is a commandline perl script for issuing the same
-command to many computers simultaneously via ssh, collating the results of that
-command by node, and presenting those results to the user in a number of ways to
-judge whether it has been successful.  It can be scripted as well as used
-interactively, logging the usual output.</p></div>
-<div class="paragraph"><p>For example, the following line will show you the correctable and uncorrectable
-memory errors on the nodes 10.255.78.20 thru 10.255.78.60.  Change the IP range
-to your own and try it yourself. Obviously, the machines have to be using the
-<a href="http://buttersideup.com/edacwiki/Main_Page">EDAC system</a>.</p></div>
+<div class="paragraph"><p><em>clusterfork</em> (aka <em>cf</em>) is a commandline perl script for issuing the same command to many computers simultaneously via ssh, collating the results of that command by node, and presenting those results to the user in a number of ways to judge whether it has been successful.  It can be scripted as well as used interactively, logging the usual output.</p></div>
+<div class="paragraph"><p>For example, the following line will show you the correctable and uncorrectable memory errors on the nodes 10.255.78.20 thru 10.255.78.60.  Change the IP range to your own and try it yourself. Obviously, the machines have to be using the <a href="http://buttersideup.com/edacwiki/Main_Page">EDAC system</a>.</p></div>
 <div class="listingblock">
 <div class="content monospaced">
 <pre>clusterfork --target=10.255.78.[20:60] 'cd /sys/devices/system/edac/mc \
@@ -805,9 +798,9 @@ to your own and try it yourself. Obviously, the machines have to be using the
 </td>
 <td class="content">
 <div class="title">Request for feedback</div>
-<div class="paragraph"><p>clusterfork is now a fairly well-tested program, designed for myself, and used
-nearly daily on our cluster.  Nevertheless, if you think it could
-benefit from other options or interface tweaks, please let me know.</p></div>
+<div class="paragraph"><p>clusterfork was designed for myself, but has been in daily use for 5 years
+at our cluster. If you think it could benefit from other options or interface tweaks,
+please let me know.</p></div>
 </td>
 </tr></table>
 </div>
@@ -816,28 +809,15 @@ benefit from other options or interface tweaks, please let me know.</p></div>
 <div class="sect1">
 <h2 id="_availability">1. Availability</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>clusterfork is released under the <a href="http://fsf.org">Free Software Foundation&#8217;s</a>
-<a href="http://www.gnu.org/licenses/agpl-3.0.html">Affero General Public License (GPL)
-version 3</a>.</p></div>
-<div class="paragraph"><p>The Perl files and docs are available from github:</p></div>
-<div class="listingblock">
-<div class="content monospaced">
-<pre>git clone https://github.com/hjmangalam/clusterfork.git
-
-# and recent copies are usually stored here:
-http://moo.nac.uci.edu/~hjm/clusterfork/clusterfork.pl</pre>
-</div></div>
+<div class="paragraph"><p>clusterfork is released under the <a href="http://fsf.org">Free Software Foundation&#8217;s</a> <a href="http://www.gnu.org/licenses/agpl-3.0.html">Affero General Public License (GPL) version 3</a>.</p></div>
+<div class="paragraph"><p>The Perl code is <a href="http://moo.nac.uci.edu/~hjm/clusterfork/clusterfork.pl">available here</a>.</p></div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="_introduction">2. Introduction</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>While modern cluster technologies (Perceus, Warewulf, ROCKS) <strong>should</strong> obviate
-the need for this kind of utility, there are many non-Perceus/WW/ROCKS clusters
-and even more cluster-like aggregations of nodes that often need this kind of
-tool.  Even in Perceus/WW/ROCKS clusters there&#8217;s often the need to issue a
-command to each node to evaluate hardware, search logs, determine memory errors,
-etc that is not met by the provisioning system.</p></div>
+<div class="paragraph"><p>While modern cluster technologies (Perceus, Warewulf, ROCKS) <strong>should</strong> obviate the need for this kind of
+utility, there are many non-Perceus/WW/ROCKS clusters and even more cluster-like aggregations of nodes that often need this kind of tool.  Even in Perceus/WW/ROCKS clusters there&#8217;s often the need to issue a command to each node to evaluate hardware, search logs, determine memory errors, etc that is not met by the provisioning system.</p></div>
 </div>
 </div>
 <div class="sect1">
@@ -848,29 +828,22 @@ etc that is not met by the provisioning system.</p></div>
 <div class="ulist"><ul>
 <li>
 <p>
-is config file-based (and will write an example template if one doesn&#8217;t
-exist). You can also specify alternative config files.
+is config file-based (and will write an example template if one doesn&#8217;t exist). You can also specify alternative config files.
 </p>
 </li>
 <li>
 <p>
-has an easy way to specify large, discontinuous IP# ranges with negations: ie
-128.200.34.[23:45 -25 77:155 -100:-120] will send the cmd to the nodes (on net
-128.200.34.0) 23 to 45 EXCEPT 25 and then 77 to 155 EXCEPT the nodes 100 to 120.
- Such specifications can also be chained or instantiated in the config file. See
-<a href="#SpecifyingRanges">Specifying Ranges</a> below.
+has an easy way to specify large, discontinuous IP# ranges with negations: ie 128.200.34.[23:45 -25 77:155 -100:-120] will send the cmd to the nodes (on net 128.200.34.0) 23 to 45 EXCEPT 25 and then 77 to 155 EXCEPT the nodes 100 to 120.  Such specifications can also be chained or instantiated in the config file. See <a href="#SpecifyingRanges">Specifying Ranges</a> below.
 </p>
 </li>
 <li>
 <p>
-config file can specify IP ranges based on arbitrary scripts such as SGE&#8217;s
-<em>qhost</em>.
+config file can specify IP ranges based on arbitrary scripts such as SGE&#8217;s <em>qhost</em>.
 </p>
 </li>
 <li>
 <p>
-can combine IP ranges into larger groups via <em>named group addition</em> (GRP1<br>
-GRP2 + GRP3)
+can combine IP ranges into larger groups via <em>named group addition</em> (GRP1 + GRP2 + GRP3)
 </p>
 </li>
 <li>
@@ -880,20 +853,17 @@ is pretty fast (by default, forks commands so that they execute in parallel).
 </li>
 <li>
 <p>
-comes with at least a decent amount of documentation, both external (this
-file) as well as internal help (clusterfork -h)
+comes with at least a decent amount of documentation, both external (this file) as well as internal help (clusterfork -h)
 </p>
 </li>
 <li>
 <p>
-code is short (&lt;1000LOC, including rc file template and help text), pretty
-well-documented and easy to modify.
+code is short (&lt;1400LoC, including rc file template and help text), pretty well-documented and easy to modify.
 </p>
 </li>
 <li>
 <p>
-provides a mechanism to evaluate the results of the command (like pssh, but
-better).
+provides a mechanism to evaluate the results of the command (like pssh, but better).
 </p>
 </li>
 <li>
@@ -903,29 +873,17 @@ can archive the results, altho in a fairly primitive way.
 </li>
 <li>
 <p>
-can be used to (crudely) monitor the status of a cluster&#8217;s locally installed
-software.
+will filter which IP #s overlap in a command so nodes won&#8217;t receive multiple copies of commands.
 </p>
 </li>
 <li>
 <p>
-will filter which IP #s overlap in a command so nodes won&#8217;t receive multiple
-copies of commands.
+provides multiple mechanisms for showing results: <em>MD5 hash</em> and <em>wordcount</em> of machine-specific output to show both <em>exact</em> and <em>similar</em> output, as well as saving the output for later perusal in a newly created subdir which also contains a summary file.  You can view the output as a summary, or via <a href="http://en.wikipedia.org/wiki/Midnight_Commander">Midnight Commander</a> browsing of the results dir.
 </p>
 </li>
 <li>
 <p>
-provides multiple mechanisms for showing results: <em>MD5 hash</em> and <em>wordcount</em>
-of machine-specific output to show both <em>exact</em> and <em>similar</em> output, as well as
-saving the output for later perusal in a newly created subdir which also
-contains a summary file.  You can view the output as a summary, or via
-<a href="http://en.wikipedia.org/wiki/Midnight_Commander">Midnight Commander</a> browsing of
-the results dir.
-</p>
-</li>
-<li>
-<p>
-captures STDERR as well as STDOUT into the node-specific files.
+captures STDERR as well as STDOUT into the node-specific results files.
 </p>
 </li>
 <li>
@@ -935,21 +893,17 @@ tracks running hosts to identify hung or trailing hosts.
 </li>
 <li>
 <p>
-can be config&#8217;ed to write results files to a specific dir or in the current
-dir
+can be config&#8217;ed to write results files to a specific dir or in the current dir
 </p>
 </li>
 <li>
 <p>
-will delete empty results files before presenting them for evaluation (but
-note them in the Summary).
+will delete empty results files before presenting them for evaluation (but note them in the Summary).
 </p>
 </li>
 <li>
 <p>
-can be scripted (with specified timeout) to log the usual output, returning
-the results directory so that the execution results can be evaluated
-programmatically.
+can be scripted to log the usual output, returning the results directory so that the execution results  can be evaluated programmatically.
 </p>
 </li>
 </ul></div>
@@ -958,8 +912,7 @@ programmatically.
 <div class="sect1">
 <h2 id="_prerequisites">4. Prerequisites</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>Note that it does have a few Perl dependencies beyond the usual <em>strict</em> and
-<em>Env</em>:</p></div>
+<div class="paragraph"><p>Note that it does have a few Perl dependencies beyond the usual <em>strict</em> and <em>Env</em>:</p></div>
 <div class="olist arabic"><ol class="arabic">
 <li>
 <p>
@@ -977,15 +930,11 @@ programmatically.
 </p>
 </li>
 </ol></div>
-<div class="paragraph"><p>It also requires some apps that are usually installed on most Linux boxen
-anyway.:</p></div>
+<div class="paragraph"><p>It also requires some apps that are usually installed on most Linux boxen anyway.:</p></div>
 <div class="olist arabic"><ol class="arabic">
 <li>
 <p>
-<em>ssh</em> for executing the commands (and obviously the nodes have to share ssh
-keys to provide
-<a href="http://moo.nac.uci.edu/~hjm/bduc/BDUC_USER_HOWTO.html#HowtoPasswordlessSsh">
-passwordless ssh</a>)
+<em>ssh</em> for executing the commands (and obviously the nodes have to share ssh keys to provide <a href="http://moo.nac.uci.edu/~hjm/bduc/BDUC_USER_HOWTO.html#HowtoPasswordlessSsh">passwordless ssh</a>)
 </p>
 </li>
 <li>
@@ -1005,16 +954,12 @@ passwordless ssh</a>)
 </li>
 <li>
 <p>
-<em>mc</em> (Midnight Commander) a Norton Commander-like clone to view/manipulate
-files - this is extremely useful for browsing the results of the command.  It
-may have to be configured to list files in the left pane and the view in the
-right pane for the best result.
+<em>mc</em> (Midnight Commander) a Norton Commander-like clone to view/manipulate files - this is extremely useful for browsing the results of the command.  It may have to be configured to list files in the left pane and the view in the right pane for the best result.
 </p>
 </li>
 <li>
 <p>
-whatever local apps, scripts, etc that you need to use to generate IP# lists
-if this is of interest (SGE&#8217;s <em>qhost</em> to see what nodes are alive, for example).
+whatever local apps, scripts, etc that you need to use to generate IP# lists if this is of interest (SGE&#8217;s <em>qhost</em> to see what nodes are alive, for example).
 </p>
 </li>
 </ol></div>
@@ -1023,14 +968,13 @@ if this is of interest (SGE&#8217;s <em>qhost</em> to see what nodes are alive, 
 <div class="sect1">
 <h2 id="_installation">5. Installation</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>for recent Ubuntu-based distros, the following will install the prerequisite
-packages.</p></div>
+<div class="paragraph"><p>for recent Ubuntu-based distros, the following will install the prerequisite packages.</p></div>
 <div class="listingblock">
 <div class="content monospaced">
 <pre>sudo apt-get install libgetopt-mixed-perl libconfig-simple-perl \
 libio-interface-perl mc diff yum apt mutt</pre>
 </div></div>
-<div class="paragraph"><p>for CentOS and comparable RedHat based systems:</p></div>
+<div class="paragraph"><p>for CentOS5 and comparable RedHat based systems:</p></div>
 <div class="listingblock">
 <div class="content monospaced">
 <pre>ARCH=`uname -a |cut -f 12 -d ' '`
@@ -1045,15 +989,12 @@ diffutils.$ARCH yum.noarch mutt.$ARCH</pre>
 <div class="olist arabic"><ol class="arabic">
 <li>
 <p>
-downloading the
-<a href="http://moo.nac.uci.edu/~hjm/clusterfork/clusterfork.pl">clusterfork script
-itself</a>.
+downloading the <a href="http://moo.nac.uci.edu/~hjm/clusterfork/clusterfork.pl">clusterfork script itself</a>.
 </p>
 </li>
 <li>
 <p>
-move it to your <em>/usr/local/bin</em> as <em>clusterfork</em> (and optionally, symlink it
-to <em>cf</em>)
+move it to your <em>/usr/local/bin</em> as <em>clusterfork</em> (and optionally, symlink it to <em>cf</em>)
 </p>
 </li>
 <li>
@@ -1077,16 +1018,14 @@ start clusterforking.
 </p>
 </li>
 </ol></div>
-<div class="paragraph"><p>If you want to use the email features, you need a working sendmail-like agent
-that mutt can talk to, such as <a href="http://www.exim.org">exim</a> or
-<a href="http://www.postfix.org/">postfix</a>.</p></div>
+<div class="paragraph"><p>If you want to use the email features, you need a working sendmail-like agent that mutt can talk to, such as <a href="http://www.exim.org">exim</a> or <a href="http://www.postfix.org/">postfix</a>.</p></div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="_initialization">6. Initialization</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>The 1st time you use clusterfork, you should get this message (unless you&#8217;ve
-already copied a <em>~/.clusterforkrc</em> file from somewhere else).  Just follow the instructions.</p></div>
+<div class="paragraph"><p>The 1st time you use clusterfork, you should get this message (unless you&#8217;ve already copied
+a <em>~.clusterforkrc</em> file from somewhere else).  Just follow the instructions.</p></div>
 <div class="listingblock">
 <div class="content monospaced">
 <pre>$ clusterfork
@@ -1107,23 +1046,16 @@ already copied a <em>~/.clusterforkrc</em> file from somewhere else).  Just foll
         the shared keys should only have to be installed once in
         /home/$USER/.ssh/authorized_keys.
 
-        Please edit the ~/.clusterforkrc template that's just been written
-        so that the next time things go smoother.</pre>
+        Please edit the ~/.clusterforkrc template that's just been written so that
+        the next time things go smoother.</pre>
 </div></div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="_the_clusterforkrc_configuration_file">7. The ~/.clusterforkrc configuration file</h2>
+<h2 id="_the_clusterforkrc_configuration_file">7. The .clusterforkrc configuration file</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>The <em>.clusterforkrc</em> config file (by default in your $HOME) is arranged like a
-Windows <em>.INI</em> file with stanza headers indicated with <em>[STANZA]</em>.  Each stanza
-can have an arbitrary number of entries, but only the stanzas shown are
-supported by <em>cf</em>.  Nothing prevents you from adding more, but you&#8217;ll have to
-process them yourself.  Within each stanza, you can edit the entries</p></div>
-<div class="paragraph"><p>The stanzas named [IPRANGE] and [GROUPS] can be expanded arbitrarily and <em>cf</em>
-should pick them up.  Additionally, if you specify groups which have overlapping
-IP ranges, <em>cf</em> will detect that overlap and will only issue the command once
-per IP #.</p></div>
+<div class="paragraph"><p>The <em>.clusterforkrc</em> config file (by default in your $HOME) is arranged like a Windows <em>.INI</em> file with stanza headers indicated with <em>[STANZA]</em>.  Each stanza can have an arbitrary number of entries, but only the stanzas shown are supported by <em>cf</em>.  Nothing prevents you from adding more, but you&#8217;ll have to process them yourself.  Within each stanza, you can edit the entries</p></div>
+<div class="paragraph"><p>The stanzas named [IPRANGE] and [GROUPS] can be expanded arbitarily and <em>cf</em> should pick them up.  Additionally, if you specify groups which have overlapping IP ranges, <em>cf</em> will detect that overlap and will only issue the command once per IP #.</p></div>
 <div class="listingblock">
 <div class="content monospaced">
 <pre># This is the config file for the 'clusterfork' application (aka cf) which executes
@@ -1154,8 +1086,8 @@ per IP #.</p></div>
   # use fully qualified path; not '~/cf'.
   RESULTS_DIR = "/home/hmangala/cf"
 
-  # command to install apps - if this is found in the command, triggers a
-  # routine to email admins with updated install info.
+  # command to install apps - if this is found in the command, triggers a routine to
+  # email admins with updated install info.
   INSTALLCMD = "yum install -y"
 
 [SGE]
@@ -1182,11 +1114,11 @@ per IP #.</p></div>
   ICS_2X = 10.255.89.[5:44]
   CLAWS = 10.255.78.[5:9]
 
-  # example of mixing IP# ranges and both single hostnames and hostname ranges
+  # example of mixing IP# ranges and both single hostanems and hostname ranges
   MIXED = a64-[002:004] ; 10.255.78.16; 10.255.78.[10:12] ; dabrick ; claw[5:9]
 
   # for a definition based on a script, the value must be in the form of:
-  #   SCRIPT:"whatever the script is"
+  #   [SCRIPT:"whatever the script is"]
   # with required escaping being embedded in the submitted script
   # (see below for an example in QHOST)
   # the following QHOST example uses the host-local SGE 'qhost' and 'scut' utilities
@@ -1195,8 +1127,7 @@ per IP #.</p></div>
   # a space-delimited set of names.
   QHOST = SCRIPT:"qhost |grep a64 | grep -v ' - ' | scut --c1=0 | perl -e 's/\\n/ /gi' -p"
 
-  # Set temporarily dead nodes in here if required.  Keep the "", if no values
-to insert.
+  # Set temporarily dead nodes in here if required.  Keep the "", if no values to insert.
   # separate hostnames or ranges with ';' as above.
 
   IGNORE = "10.255.78.12 ; 10.255.78.48 ; 12.23.34.[22:25]"
@@ -1216,42 +1147,30 @@ to insert.
 <div class="sect1">
 <h2 id="SpecifyingRanges">8. Specifying Ranges</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>The range specifier in <em>cf</em> is fairly flexible (mostly taken from the
-slice&#8217;n'dice utility <a href="http://moo.nac.uci.edu/~hjm/scut_cols_HOWTO.html">scut</a>).
-You can specify the target ranges with either <strong>IP #s</strong> (<em>128.200.15.[34:88 -55]</em>)
-or <strong>alphnumeric hostnames</strong> (<em>node_[211-345 -255:-258].somenet.podunk.edu</em>).</p></div>
-<div class="paragraph"><p>BUT only 1 variable specification per hostname string, please (don&#8217;t try
-<em>cn_[45:299].net-[23:35].podunk.edu</em>; you&#8217;ll regret it.)</p></div>
-<div class="paragraph"><p>Also, if the 1st number is entered using leading/padding zeros, the numbers
-emitted will also have the same number of characters.  For example,
-<em>[0005:0023]</em> will generate <em>0005 0006 0007 &#8230; 0022 0023</em>, as will <em>[0005:23]</em>
-- it&#8217;s just the 1st number that sets the pad length.</p></div>
-<div class="paragraph"><p>You can also chain specifications like this: (taken from an example
-<em>~/.clusterforkrc</em> file).</p></div>
+<div class="paragraph"><p>The range specifier in <em>cf</em> is fairly flexible (mostly taken from the slice&#8217;n'dice utility <a href="http://moo.nac.uci.edu/~hjm/scut_cols_HOWTO.html">scut</a>).  You can specify the target ranges with either <strong>IP #s</strong> (<em>128.200.15.[34:88 -55]</em>) or <strong>alphnumeric hostnames</strong> (<em>node_[211-345 -255:-258].somenet.podunk.edu</em>).</p></div>
+<div class="paragraph"><p>BUT only 1 variable specification per hostname string, please (don&#8217;t try <em>cn_[45:299].net-[23:35].podunk.edu</em>; you&#8217;ll regret it.)</p></div>
+<div class="paragraph"><p>Also, if the 1st number is entered using leading/padding zeros, the numbers emitted will also have the same number of characters.  For example, <em>[0005:0023]</em> will generate <em>0005 0006 0007 &#8230; 0022 0023</em>, as will <em>[0005:23]</em> - it&#8217;s just the 1st number that sets the pad length.</p></div>
+<div class="paragraph"><p>You can also chain specifications like this: (taken from an example <em>~/.clusterforkrc</em> file).</p></div>
 <div class="listingblock">
 <div class="content monospaced">
 <pre># ADC_2X can be specified either with a central negation range:
     ADC_2X = a64-[104:181 -141:-167]
 
-# or as this chain of 2 separated ranges
+# or as this a chain of 2 separated ranges
 # (you must use a ';' as a chain character)
     ADC_2X = a64-[104:140] ; a64-[168:181]
 
 # you can also specify hostgroups with chains of mixed IP #s and hostnames
-# if they resolve to each other, both are listed on output
+# they should resolve to each other and both are listed on output
     BOOBOO = 10.255.78.[22:46] ; a64-[168:177]</pre>
 </div></div>
 <div class="sect2">
 <h3 id="hosts">8.1. Specifying Individual Hosts</h3>
-<div class="paragraph"><p>You can also specify a few hosts to target without doing any complicated ranges,
-by using the <em>--hosts</em> option.  Appending the hostnames or IP #s to this option
-will allow you target a few specific hosts more easily. See
-<a href="#options">Options</a> below.  remember to quote the string and only use
-whitespace between the names.</p></div>
+<div class="paragraph"><p>You can also specify a few hosts to target without doing any complicated ranges, by using the <em>--hosts</em> option.  Appending the hostnames or IP #s to this option will allow you target a few specific hosts more easily. See <a href="#options">Options</a> below.  remember to quote the string and only use whitespace between the names.</p></div>
 <div class="paragraph"><p>ie:</p></div>
 <div class="listingblock">
 <div class="content monospaced">
-<pre>cf --hosts='nina pinta santa_maria enterprise exxon_valdez' ..</pre>
+<pre>cf --hosts='nina pinta santa_maria enterprise exxon_valdez'</pre>
 </div></div>
 </div>
 </div>
@@ -1259,8 +1178,7 @@ whitespace between the names.</p></div>
 <div class="sect1">
 <h2 id="options">9. Options</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>The options are spelled out fairly well by the <em>cf -h</em> command.  However, here
-they are again, verbatim.</p></div>
+<div class="paragraph"><p>The options are spelled out fairly well by the <em>cf -h</em> command.  However, here they are again, verbatim.</p></div>
 <div class="listingblock">
 <div class="content monospaced">
 <pre>      --help / -h............. dump usage, tips
@@ -1282,7 +1200,7 @@ they are again, verbatim.</p></div>
           where GROUP    -&gt; 'ICS_2X,ADC_4X,CLAWS' (from config file)
           (see docs for longer exposition on IP_Ranges and GROUP definition)
 
-      --hosts=[quoted space-delimited explicit hostnames]
+      --hosts=[quoted space-delimited hostnames]
           For those times when you have a random number of hostnames to send.
           ie: --hosts='a64-111  a64-142  a64-183  a64-972'.  This will process
           them in the same way as '--target' above, but without having to spec
@@ -1330,12 +1248,6 @@ they are again, verbatim.</p></div>
           the result dir at the end of the run.  The usual STDOUT is saved as:
           &lt;result_dir&gt;/LOG.
 
-          --timeout #  (or #s, #m, #h)
-          sets the timout period, especially when using --script so that
-          a few hanging nodes can't keep clusterfork going forever.  By default
-          set to 600s (10m) when --script is used, 1h when used interactively.
-          If no s|m|h is given, seconds are assumed. Fractions (0.01h) OK.
-
       --debug ..... causes voluminous debug messages to spew forth</pre>
 </div></div>
 </div>
@@ -1354,15 +1266,13 @@ list the groups that are defined there.</p></div>
 <div class="content monospaced">
 <pre>clusterfork --config=./this_cf_file  --listgroup</pre>
 </div></div>
-<div class="paragraph"><p>Have <em>cf</em> read the default config file and target the group <em>CLAWS</em> with the
-command
+<div class="paragraph"><p>Have <em>cf</em> read the default config file and target the group <em>CLAWS</em> with the command
 <em>ls -lSh</em></p></div>
 <div class="listingblock">
 <div class="content monospaced">
 <pre>$ clusterfork  --target=CLAWS  'ls -lSh'</pre>
 </div></div>
-<div class="paragraph"><p>Check the memory error counts for the nodes 192.168.1.15 thru 192.168.1.75
-except 192.168.1.66</p></div>
+<div class="paragraph"><p>Check the memory error counts for the nodes 192.168.1.15 thru 192.168.1.75 except 192.168.1.66</p></div>
 <div class="listingblock">
 <div class="content monospaced">
 <pre>$ clusterfork --target=192.18.1.[15:75 -66] \
@@ -1374,14 +1284,12 @@ except 192.168.1.66</p></div>
 <pre>$ clusterfork --target=ALL_ADC 'ping -c 1 bduc-login'</pre>
 </div></div>
 <div class="paragraph"><p>Ask the nodes [10.255.78.12 to 10.255.78.45]
-and [10.255.35.101 to  10.255.35.165] to dump the catalog of their installed
-packages.</p></div>
+and [10.255.35.101 to  10.255.35.165] to dump the catalog of their installed packages.</p></div>
 <div class="listingblock">
 <div class="content monospaced">
 <pre>clusterfork --target='10.255.78.[12:45] 10.255.35.[101:165]' 'dpkg -l'</pre>
 </div></div>
-<div class="paragraph"><p>Ask the nodes in the ADC_2X group to /serially/ dump their hardware memory
-configuration</p></div>
+<div class="paragraph"><p>Ask the nodes in the ADC_2X group to /serially/ dump their hardware memory configuration</p></div>
 <div class="listingblock">
 <div class="content monospaced">
 <pre>$ sudo clusterfork --target=ADC_2X --nofork 'lshw -short -class memory'</pre>
@@ -1394,8 +1302,7 @@ configuration</p></div>
 <div class="paragraph"><p>You can use hostnames as well as IP #s:</p></div>
 <div class="listingblock">
 <div class="content monospaced">
-<pre>$ sudo clusterfork --target=a64-[0005:0078 -22 -52 -57].bduc 'ps aux |grep
-gromacs'</pre>
+<pre>$ sudo clusterfork --target=a64-[0005:0078 -22 -52 -57].bduc 'ps aux |grep gromacs'</pre>
 </div></div>
 <div class="paragraph"><p>Using a script to specify the list of nodes to target:</p></div>
 <div class="listingblock">
@@ -1407,17 +1314,13 @@ gromacs'</pre>
 <div class="content monospaced">
 <pre>QHOST = "SCRIPT:qhost |grep a64 | grep -v ' - ' | scut --c1=0 | perl -e 's/\\n/ /gi' -p"</pre>
 </div></div>
-<div class="paragraph"><p>which calls the SGE utility <em>qhost</em>, filters the output and stream-edits the
-STDOUT to create a space-delimited list that can be processed by cf.</p></div>
+<div class="paragraph"><p>which calls the SGE utility <em>qhost</em>, filters the output and stream-edits the STDOUT to create a space-delimited list that can be processed by cf.</p></div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="_output">11. Output</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>When <em>cf</em> is executed in <em>forking</em> mode, it waits for all the slave processes to
-finish, then allows you to view both the Summary and the full results, which are
-also written to the newly created directory named with a combination of the
-command, the date and the time:</p></div>
+<div class="paragraph"><p>When <em>cf</em> is executed in <em>forking</em> mode, it waits for all the slave processes to finish, then allows you to view both the Summary and the full results, which are also written to the newly created directory named with a combination of the command, the date and the time:</p></div>
 <div class="listingblock">
 <div class="content monospaced">
 <pre>$ clusterfork.pl --target=QHOST 'ls -lSh *gz'
@@ -1441,12 +1344,9 @@ Host: a64-183 [10.255.78.93]:
 
 
 Waiting for [41] hosts @ [0] sec:
-        a64-142 a64-143 a64-144 a64-145 a64-146 a64-147 a64-148 a64-149 a64-150
-a64-151 a64-152
-        a64-153 a64-154 a64-155 a64-156 a64-157 a64-158 a64-159 a64-160 a64-161
-a64-162 a64-163
-        a64-164 a64-166 a64-167 a64-168 a64-169 a64-170 a64-171 a64-172 a64-173
-a64-174 a64-175
+        a64-142 a64-143 a64-144 a64-145 a64-146 a64-147 a64-148 a64-149 a64-150 a64-151 a64-152
+        a64-153 a64-154 a64-155 a64-156 a64-157 a64-158 a64-159 a64-160 a64-161 a64-162 a64-163
+        a64-164 a64-166 a64-167 a64-168 a64-169 a64-170 a64-171 a64-172 a64-173 a64-174 a64-175
         a64-176 a64-177 a64-178 a64-179 a64-180 a64-181 a64-182 a64-183
 Waiting for [0] hosts @ [2] sec:
 
@@ -1456,52 +1356,42 @@ You can find the results of your command in the dir
         [ REMOTE_CMD-ls--lSh--gz-15.28.09_2012-01-01 ]
 
 (View Summary file in 'less')
-Summary of contents for files in
-/home/hmangala/cf/REMOTE_CMD-ls--lSh--gz-16.46.56_2012-08-07
+Summary of contents for files in /home/hmangala/cf/REMOTE_CMD-ls--lSh--gz-16.46.56_2012-08-07
 Each line denotes MD5 identical output; wordcount shows similarity
 Command: [ls -lSh *gz]
 ========================================================================
  line / word / chars | # |  hosts -&gt;
-         14 126 1040  107  a64-001 a64-002 a64-003 a64-004 a64-005 a64-006
-a64-007 a64-008 ...
-         14 126 1040   25  n101 n102 n103 n104 n105 n106 n107 n108 n109 n110
-n111 n112 n113 ...
-         14 112 1096   10  claw1 claw10 claw2 claw3 claw4 claw5 claw6 claw7
-claw8 claw9</pre>
+         14 126 1040  107  a64-001 a64-002 a64-003 a64-004 a64-005 a64-006 a64-007 a64-008 ...
+         14 126 1040   25  n101 n102 n103 n104 n105 n106 n107 n108 n109 n110 n111 n112 n113 ...
+         14 112 1096   10  claw1 claw10 claw2 claw3 claw4 claw5 claw6 claw7 claw8 claw9</pre>
 </div></div>
 <div class="paragraph"><p>If <em>n</em>, it drops you to the shell prompt.
-If <em>Enter</em> or <em>y</em>, it will present the directory in <em>Midnight Commander</em>.
-Depending on your configuration, you should be able to view the files simply by
-highlight them with the cursor.</p></div>
-<div class="paragraph"><p>In the above case, because of the shared dir structure, the <em>Summary</em> shows that
-the result is identical on all nodes but the <em>ls</em> format differences between the
-CentOS, Ubuntu, and Debian nodes
+If <em>Enter</em> or <em>y</em>, it will present the directory in <em>Midnight Commander</em>.  Depending on your configuration, you should be able to view the files simply by highlight them with the cursor.</p></div>
+<div class="paragraph"><p>In the above case, because of the shared dir structure, the <em>Summary</em> shows that the result is identical on all nodes but the <em>ls</em> format differences between the CentOS, Ubuntu, and Debian nodes
 create are picked up even when the wordcounts are identical.</p></div>
-<div class="paragraph"><p>In the case below, there&#8217;s a lot of zero-length files, which can be deleted
-before you view them individually.</p></div>
+<div class="paragraph"><p>In the case below, there&#8217;s a lot of zero-length files, which can be deleted before you view them individually.</p></div>
 <div class="listingblock">
 <div class="content monospaced">
-<pre>Summary of contents for files in
-/home/hmangala/cf/REMOTE_CMD-df--h--grep--56789-.-16.43.14_2012-08-07
-Each line denotes MD5 identical output; wordcount shows similarity
+<pre>Summary of contents for files in /home/hmangala/cf/REMOTE_CMD-df--h--grep--56789-.-16.43.14_2012-08-07
+Each line denotes MD5-identical output; wordcount shows similarity
 Command: [df -h |grep [56789].%]
 ========================================================================
  line / word / chars | # |  hosts -&gt;
               1 6 54    1  a64-182
-               0 0 0  110  a64-001 a64-002 a64-003 a64-004 a64-005 a64-006
-a64-007 ...
+               0 0 0  110  a64-001 a64-002 a64-003 a64-004 a64-005 a64-006 a64-007 ...
               1 6 49    1  claw6
               1 6 51    1  claw10
               1 6 46    1  a64-121
               1 6 46    1  a64-109
               1 6 46    1  claw1
-            2 11 112   25  n101 n102 n103 n104 n105 n106 n107 n108 n109 n110
-n111 ...
+            2 11 112   25  n101 n102 n103 n104 n105 n106 n107 n108 n109 n110 n111 ...
               1 6 46    1  a64-035</pre>
 </div></div>
-<div class="paragraph"><p>This last option of the clusterfork analysis allows you to view the results in
-<a href="http://www.midnight-commander.org/">Midnight Commander</a> (aka <em>mc</em>).  The above
-results shown in <em>mc</em> look like this:</p></div>
+<div class="paragraph"><p>The latest versions of clusterfork now symlink the MD5-identical outputs into dirs that contain ONLY
+those node names that are identical.</p></div>
+<div class="paragraph"><p>The last line of the Summary file lists nodes that are unresponsive by ping, so that you can add
+them to the <em>IGNORE</em> group in the <em>.clusterforkrc</em> file.</p></div>
+<div class="paragraph"><p>This last option of the clusterfork analysis allows you to view the results in <a href="http://www.midnight-commander.org/">Midnight Commander</a> (aka <em>mc</em>).  The above results shown in <em>mc</em> look like this:</p></div>
 <div class="paragraph"><div class="title">clusterfork output viewed in Midnight Commander</div><p><span class="image">
 <img src="clusterfork_mc_s.png" alt="clusterfork output in mc">
 </span></p></div>
@@ -1510,40 +1400,30 @@ results shown in <em>mc</em> look like this:</p></div>
 <div class="sect1">
 <h2 id="problems">12. Known Problems</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>clusterfork is a fairly debugged program and while it works pretty well, there are
-some known or possible problems, mostly having to do with regular expressions.</p></div>
+<div class="paragraph"><p>clusterfork is a fairly new program and while it works pretty well, there are some known or possible problems, mostly having to do with regular expressions.</p></div>
 <div class="ulist"><ul>
 <li>
 <p>
-regular expressions passed as part of the remote command may suffer in the
-<em>ssh to shell</em> translation and be garbled on the remote end.  I&#8217;ve been using it
-in production for about 4 years and have found a few (corrected) problems but
-it&#8217;s a consideration, especially when the remote command is complicated.
+regular expressions passed as part of the remote command may suffer in the <em>ssh to shell</em> translation and be garbled on the remote end.  I&#8217;ve been using it in production for about 2 years and have found a few (corrected) problems but it&#8217;s a consideration, especially when the remote command is complicated.
 </p>
 </li>
 <li>
 <p>
-the 1st 20 characters of the commandline are used as part of the directory
-name and regular expressions included as part of those 20 characters may
-sometimes be garbled into impossible dir names which are rejected by the OS.  An
-error message should be emitted if this happens and I&#8217;m trying to catch and
-retranslate these regexes.
+the 1st 20 characters of the commandline are used as part of the directory name and regular expressions included as part of those 20 characters may sometimes be garbled into impossible dir names which are rejected by the OS.  An error message should be emitted if this happens and I&#8217;m trying to catch and retranslate these regexes.
 </p>
 </li>
 <li>
 <p>
-if the Linux distro from which you issue the <em>cf</em> command aliases <em>/bin/sh</em> to
-<em>dash</em> instead of <em>bash</em> (as do most recent Ubuntu-derived distros), the
-redirection of the output when using the default <em>fork</em> behavior will be odd. It
-will not redirect to the usual files, but will be written to the screen in one
-blurb.  The <em>dash/bash</em> weirdness also contributes other instabilities, so I
-usually change this so that <em>/bin/sh</em> &#8594; <em>/bin/bash</em>.  If too many people
-complain, I&#8217;ll add some work-around code to the script.
+if the Linux distro from which you issue the <em>cf</em> command aliases <em>/bin/sh</em> to <em>dash</em> instead of <em>bash</em> (as do most recent Ubuntu-derived distros), the redirection of the output when using the default <em>fork</em> behavior will be odd. It will not redirect to the usual files, but will be written to the screen in one blurb.  The <em>dash/bash</em> weirdness also contributes other instabilities, so I usually change this so that <em>/bin/sh</em> &#8594; <em>/bin/bash</em>.  If too many people complain, I&#8217;ll add some work-around code to the script.
+</p>
+</li>
+<li>
+<p>
+in versions prior to 1.55, if the host/IP specification included a negation of the last number in the series, it would write an undef in the last position.  ie: in the spec <em>a64-[001:040 -012 -013 -040]</em>, 040 would be undef&#8217;ed leading to an warning when running and the last host not being processed (but since it was negated, it wasn&#8217;t meant to be processed anyway.)
 </p>
 </li>
 </ul></div>
-<div class="paragraph"><p><strong>PLEASE let me know</strong> if you run into any of these regex problems or other
-problems.</p></div>
+<div class="paragraph"><p><strong>PLEASE let me know</strong> if you run into any of these regex problems or other problems.</p></div>
 </div>
 </div>
 <div class="sect1">
@@ -1552,49 +1432,34 @@ problems.</p></div>
 <div class="ulist"><ul>
 <li>
 <p>
-1.81 -  (04-19-16) add md5 checksum filtering of output files into identical-content  dirs and symlink the output file names to the correct ones.
+1.82 - (06-16-16) log unresponsive nodes to Summary file.
 </p>
 </li>
 <li>
 <p>
-1.80 - (2-10-14) added filters to strip annoying spurious errors from output, especially:
-</p>
-<div class="ulist"><ul>
-<li>
-<p>
-"Warning: No xauth data; using fake authentication data for X11 forwarding."
+1.81 - (04-19-16) add md5 checksum filtering of output files into identical-content
+         dirs and symlink the output file names to the correct ones.
 </p>
 </li>
 <li>
 <p>
-The filter string should be part of the config file, not the code. DONE!
-</p>
-</li>
-</ul></div>
-</li>
-<li>
-<p>
-1.79 - (11-08-13) added <em>--skip</em> so can skip processing of a node that has been
-  used as a guinea pig and now no longer needs to be processed
-</p>
-<div class="ulist"><ul>
-<li>
-<p>
-fixed IGNORE group handling so that can use either IP# or hostname
+1.80 - (2-10-14) added filters to strip annoying spurious errors from out put, especially
+        "Warning: No xauth data; using fake authentication data for X11 forwarding."
+         Include the filter string as part of the config file, not the code.
 </p>
 </li>
 <li>
 <p>
-fixed some doc errors
+1.79 - (11-08-13) added <em>--skip</em> so can skip processing of a node that has been used as a
+        guinea pig and now no longer needs to be processed
+        fixed IGNORE group handling so that can use either IP# or hostname
+        fixed some doc errors
 </p>
-</li>
-</ul></div>
 </li>
 <li>
 <p>
-1.78 - (09-12-13) should only show scrolling changes once the list has changed
-    from 1st list.  so if there are 22 hosts in list, the scroll shouldn&#8217;t start
-    until the list drops to 21
+1.78 - (09-12-13) should only show scrolling changes once the list has changed from 1st list.  so if
+          there are 22 hosts in list, the scroll shouldn&#8217;t start until the list drops to 21
 </p>
 </li>
 <li>
@@ -1605,26 +1470,8 @@ fixed some doc errors
 </li>
 <li>
 <p>
-1.76 - (05.1.13) FIXED: complains about IP#-based host specs, so have to make sure it
-        can take specs like 10.3.22.[4:45] without barfing.
+1.76 - (05.1.13) FIXED: complains about IP#-based host specs, so have to make sure it can take specs like 10.3.22.[4:45] without barfing.   FIXED: handles unresolved IP#s better - times out in 1s waiting for ping &amp; continues.  FIXED: characters like &lt; &amp; &gt; fail. FIXED: # hosts left stays at 0 instead of tracking the # correctly.
 </p>
-<div class="ulist"><ul>
-<li>
-<p>
-FIXED: handles unresolved IP#s better - times out in 1s waiting for ping &amp; continues
-</p>
-</li>
-<li>
-<p>
-FIXED: characters like &lt; &amp; &gt; fail
-</p>
-</li>
-<li>
-<p>
-FIXED: # hosts left stays at 0 instead of tracking the # correctly.
-</p>
-</li>
-</ul></div>
 </li>
 <li>
 <p>
@@ -1638,8 +1485,7 @@ FIXED: # hosts left stays at 0 instead of tracking the # correctly.
 </li>
 <li>
 <p>
-1.73 - (10.04.12) set a timeout for --script version to prevent infinite
-hanging.
+1.73 - (10.04.12) set a timeout for --script version to prevent infinite hanging.
 </p>
 </li>
 <li>
@@ -1649,43 +1495,32 @@ hanging.
 </li>
 <li>
 <p>
-1.71 - (08.17.12) don&#8217;t even bother including zero-len results (they&#8217;re empty
-fer gadsakes).
+1.71 - (08.17.12) don&#8217;t even bother including zero-len results (they&#8217;re empty fer gadsakes).
 </p>
 </li>
 <li>
 <p>
-1.70 - (08.07.12) optionally delete zero-len files before viewing in mc for
-efficiency. The summary still contains the list of zero-len files if you need
-them.
+1.70 - (08.07.12) optionally delete zero-len files before viewing in mc for efficiency. The summary still contains the list of zero-len files if you need them.
 </p>
 </li>
 <li>
 <p>
-1.69 - (07.11.12) fixed small bug in specifying multiple hosts in the IPRANGE
-stanzas and updated initial .clusterforkrc file for better examples.
+1.69 - (07.11.12) fixed small bug in specifying multiple hosts in the IPRANGE stanzas and updated initial .clusterforkrc file for better examples.
 </p>
 </li>
 <li>
 <p>
-1.68 - (05.03.12) added config to specify which xterm thingy you want to use.
-Set as gnome-terminal to begin with. change it to xterm, terminator, konsole,
-etc. Also, fork the $XTERM so that it leaves the current term able to do
-something else.
+1.68 - (05.03.12) added config to specify which xterm thingy you want to use. Set as gnome-terminal to begin with. change it to xterm, terminator, konsole, etc. Also, fork the $XTERM so that it leaves the current term able to do something else.
 </p>
 </li>
 <li>
 <p>
-1.67 - (04.23.12) added <em>--script</em> option to do everything silently and NO
-query to see results. ie: "cf --script" ends by returning the results dir so
-that the rest of the script can process the results.
+1.67 - (04.23.12) added <em>--script</em> option to do everything silently and NO query to see results. ie: "cf --script" ends by returning the results dir so that the rest of the script can process the results.
 </p>
 </li>
 <li>
 <p>
-1.66 - (01.24.12) corrected subtle PID sed error that led to correct number
-but empty host list (PIDs sometimes listed with leading space which confused
-cut)
+1.66 - (01.24.12) corrected subtle PID sed error that led to correct number but empty host list (PIDs sometimes listed with leading space which confused cut)
 </p>
 </li>
 <li>
@@ -1700,14 +1535,12 @@ cut)
 </li>
 <li>
 <p>
-1.63 - (12.28.11) fix <em>;</em> delimited IPRANGES bug, single hostname
-problem/process .
+1.63 - (12.28.11) fix <em>;</em> delimited IPRANGES bug, single hostname problem/process .
 </p>
 </li>
 <li>
 <p>
-1.62 - (12.19.11) added --delay to slow the speed of execution of successive
-commands.
+1.62 - (12.19.11) added --delay to slow the speed of execution of successive commands.
 </p>
 </li>
 <li>
@@ -1727,26 +1560,22 @@ commands.
 </li>
 <li>
 <p>
-1.58 - added --hosts=[quoted space-delimited hostnames] option to process a
-few random hosts
+1.58 - added --hosts=[quoted space-delimited hostnames] option to process a few random hosts
 </p>
 </li>
 <li>
 <p>
-1.57 - fixed bug in code that searches for alt config file.  Now only writes
-the local config file if there is none AND there&#8217;s no alt config file specified.
+1.57 - fixed bug in code that searches for alt config file.  Now only writes the local config file if there is none AND there&#8217;s no alt config file specified.
 </p>
 </li>
 <li>
 <p>
-1.56 - fixed bug introduced in 1.55 that would end the run prematurely -
-wouldn&#8217;t get to last number in series; typical off-by-one stupidity.
+1.56 - fixed bug introduced in 1.55 that would end the run prematurely - wouldn&#8217;t get to last number in series; typical off-by-one stupidity.
 </p>
 </li>
 <li>
 <p>
-1.55 - fixed bug where if last number in a series was negated, array would
-overrun, generating an undefined value. (ie a64-[001:040 -012 -013 -040])
+1.55 - fixed bug where if last number in a series was negated, array would overrun, generating an undefined value. (ie a64-[001:040 -012 -013 -040])
 </p>
 </li>
 <li>
@@ -1774,84 +1603,37 @@ overrun, generating an undefined value. (ie a64-[001:040 -012 -013 -040])
 <div class="ulist"><ul>
 <li>
 <p>
-<a href="http://www.gnu.org/software/parallel/">GNU parallel</a> - actually <em>cf</em> is not
-very much like <em>GNU parallel</em>, but <em>parallel</em> is such a spiffy project that it
-deserves mention.  While <em>cf</em> is specifically a cluster admin tool, <em>parallel</em> is
-more of general purpose forking tool that provides a lot of the advantages of
-cluster computing without requiring a formal cluster, using arbitrary execution
-nodes. If you have a lot of local nodes that are not organized into a formal
-cluster, <em>parallel</em> allows you to harness them in a very cluster-like way.
-<a href="http://www.youtube.com/playlist?list=PL284C9FF2488BC6D1">Videos even</a>
+<a href="http://code.google.com/p/pdsh/">pdsh</a> - pdsh is the nicest (and coincidentally, most like <em>cf</em>).  It&#8217;s compiled C and so runs very fast and handles the additional instances as threads instead of extra processes, so it&#8217;s better behaved when trying to kill off an in-process execution.  It also supports module plug-ins if you need that.  It has a host range specification that&#8217;s <em>almost</em> as slick as cf&#8217;s, but it lacks the results compilation/collation function of <em>cf</em> and the ability to <em>add</em> groups together. But a <em>very</em> nice utility, under ongoing development.
 </p>
 </li>
 <li>
 <p>
-<a href="http://code.google.com/p/pdsh/">pdsh</a> - pdsh is the nicest (and coincidentally,
-most like <em>cf</em>).  It&#8217;s compiled C and so runs very fast and handles the
-additional instances as threads instead of extra processes, so it&#8217;s better
-behaved when trying to kill off an in-process execution.  It also supports
-module plug-ins if you need that.  It has a host range specification that&#8217;s
-<em>almost</em> as slick as cf&#8217;s, but it lacks the results compilation/collation
-function of <em>cf</em> and the ability to <em>add</em> groups together. But a <em>very</em> nice
-utility, under ongoing development.
+<a href="http://code.google.com/p/parallel-ssh/">pssh</a> - pssh is a very nice set of tools written in Python.  It&#8217;s fairly mature and has been packaged nicely.  It can use a configuration file (and in fact doesn&#8217;t allow IP range specification from the commandline), and it can write the results to a dir (but doesn&#8217;t write a summary or allow in-line viewing.  A nice example is <a href="http://www.linux.com/archive/feature/151340">described here</a>.  It doesn&#8217;t allow as easy a IP range specification, nor grouping as clusterfork.  It also is a set of tools rather than one. But since it is available via both RPM and deb, it is very convenient to install.  If you&#8217;re using pssh and are familiar with it, I&#8217;d suggest staying with it.
 </p>
 </li>
 <li>
 <p>
-<a href="http://code.google.com/p/parallel-ssh/">pssh</a> - pssh is a very nice set of
-tools written in Python.  It&#8217;s fairly mature and has been packaged nicely.  It
-can use a configuration file (and in fact doesn&#8217;t allow IP range specification
-from the commandline), and it can write the results to a dir (but doesn&#8217;t write
-a summary or allow in-line viewing.  A nice example is
-<a href="http://www.linux.com/archive/feature/151340">described here</a>.  It doesn&#8217;t allow
-as easy a IP range specification, nor grouping as clusterfork.  It also is a set
-of tools rather than one. But since it is available via both RPM and deb, it is
-very convenient to install.  If you&#8217;re using pssh and are familiar with it, I&#8217;d
-suggest staying with it.
+<a href="http://clusterit.sourceforge.net/">ClusterIt</a> - this is a fairly large hammer when all I wanted was to send commands to a set of nodes.  ClusterIt is writ in C, for speed supposedly, tho what it&#8217;s doing is just issuing commands so speed of execution shouldn&#8217;t be an issue.  It&#8217;s also trying to be a scheduling tool which complicates the core functionality of what should be a pretty simple tool.
 </p>
 </li>
 <li>
 <p>
-<a href="http://clusterit.sourceforge.net/">ClusterIt</a> - this is a fairly large hammer
-when all I wanted was to send commands to a set of nodes.  ClusterIt is writ in
-C, for speed supposedly, tho what it&#8217;s doing is just issuing commands so speed
-of execution shouldn&#8217;t be an issue.  It&#8217;s also trying to be a scheduling tool
-which complicates the core functionality of what should be a pretty simple tool.
+<a href="http://sourceforge.net/apps/mediawiki/clusterssh/index.php?title=Main_Page">clusterssh aka cssh</a> is a similar tool (but requires tcl/tk).  As such it has some advantages - can set up hosts and de/select hosts via mouse, but you interact with the targets via 1 xterm per host, hardly an efficient use of your desktop.
 </p>
 </li>
 <li>
 <p>
-<a href="http://sourceforge.net/apps/mediawiki/clusterssh/index.php?title=Main_Page">
-clusterssh aka cssh</a> is a similar tool (but requires tcl/tk).  As such it has
-some advantages - can set up hosts and de/select hosts via mouse, but you
-interact with the targets via 1 xterm per host, hardly an efficient use of your
-desktop.
+<a href="http://www.theether.org/gexec/">gexec</a> (now part of the <a href="http://ganglia.info/">ganglia project</a>) is both considerably more complex and (possibly) more capable than <em>cf</em>.  It requires the installation of <em>authd</em> and the ganglia system. By comparison, <em>cf</em> installs its own config file on 1st run and then is fairly independent.  If you&#8217;re forking the commands over several thousand nodes instead of a few hundred, gexec may be worth the extra effort.
 </p>
 </li>
 <li>
 <p>
-<a href="http://www.theether.org/gexec/">gexec</a> (now part of the
-<a href="http://ganglia.info/">ganglia project</a>) is both considerably more complex and
-(possibly) more capable than <em>cf</em>.  It requires the installation of <em>authd</em> and
-the ganglia system. By comparison, <em>cf</em> installs its own config file on 1st run
-and then is fairly independent.  If you&#8217;re forking the commands over several
-thousand nodes instead of a few hundred, gexec may be worth the extra effort.
+<a href="http://sourceforge.net/projects/tentakel/files/tentakel/tentakel-2.2/">tentakel</a>; the home page is down at the moment.  <a href="http://www.cyberciti.biz/tips/execute-commands-on-multiple-linux-or-unix-servers-part-ii.html">Here&#8217;s a description tho.</a>  Very short python script that does what clusterfork did in version 1 when it was still a bash script.
 </p>
 </li>
 <li>
 <p>
-<a href="http://sourceforge.net/projects/tentakel/files/tentakel/tentakel-2.2/">tentakel</a>;
-<a href="http://www.cyberciti.biz/tips/execute-commands-on-multiple-linux-or-unix-servers">http://www.cyberciti.biz/tips/execute-commands-on-multiple-linux-or-unix-servers</a>
--part-ii.html[Here&#8217;s a description tho.]  Very short python script that does
-what clusterfork did in version 1 when it was still a bash script. (discontinued)
-</p>
-</li>
-<li>
-<p>
-<a href="https://cdcvs.fnal.gov/redmine/projects/fermitools/wiki/RGANG">rgang</a> sounds a
-lot like clusterfork and can apparently use a tree-structure to spawn copies of
-itself so that there are multiple copies of itself spawning multiple copies of
-itself.  If this sounds like a good idea, you should contact Fermilab.
+<a href="https://cdcvs.fnal.gov/redmine/projects/fermitools/wiki/RGANG">rgang</a> sounds a lot like clusterfork and can apparently use a tree-structure to spawn copies of itself so that there are multiple copies of itself spawning multiple copies of itself.  If this sounds like a good idea, you should contact Fermilab.
 </p>
 </li>
 </ul></div>
@@ -1862,16 +1644,15 @@ itself.  If this sounds like a good idea, you should contact Fermilab.
 <h2 id="_latest_version">15. Latest Version</h2>
 <div class="sectionbody">
 <div class="paragraph"><p>The latest version of the clusterfork code and documentation
-<a href="http://moo.nac.uci.edu/~hjm/clusterfork/clusterfork.html">will always be found
-here</a> or <a href="https://github.com/hjmangalam/clusterfork">on Github</a></p></div>
+<a href="http://moo.nac.uci.edu/~hjm/clusterfork/clusterfork.html">will always be found here</a>.</p></div>
 </div>
 </div>
 </div>
 <div id="footnotes"><hr></div>
 <div id="footer">
 <div id="footer-text">
-Version 1.81<br>
-Last updated 2016-04-20 09:06:04 PDT
+Version 1.82<br>
+Last updated 2016-06-16 13:16:53 PDT
 </div>
 </div>
 </body>

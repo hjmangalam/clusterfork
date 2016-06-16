@@ -1,8 +1,26 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl 
 # my $| =1; # uncomment to force flushing
 # Perldocs removed in favor of the help stanza below at ~ line 634
 # search for 'sub usage'
 
+# 1.82 - (06-16-16) log unresponsive nodes to Summary file.
+# 1.81 - (04-19-16) add md5 checksum filtering of output files into identical-content  dirs and symlink the output file names to the correct ones.
+# 1.80 - (2-10-14) added filters to strip annoying spurious errors from out put, especially
+#        "Warning: No xauth data; using fake authentication data for X11 forwarding."
+#         Include the filter string as part of the config file, not the code.
+# 1.79 - (11-08-13) added '--skip' so can skip processing of a node that has been used as a
+#        guinea pig and now no longer needs to be processed
+#        fixed IGNORE group handling so that can use either IP# or hostname
+#        fixed some doc errors
+# 1.78 - (09-12-13) should only show scrolling changes once the list has changed from 1st list.  so if
+#          there are 22 hosts in list, the scroll shouldn't start until the list drops to 21
+# 1.77 - (06-14-2013) cosmetic changes; narrow output, short-circuit last 2 s wait,
+#        rename output dir from 'REMOTE-CMD' to CF'.
+# 1.76 - (05.1.13) FIXED: complains about IP#-based host specs, so have to make sure it
+#        can take specs like 10.3.22.[4:45] without barfing.
+#        FIXED: handles unresolved IP#s better - times out in 1s waiting for ping & continues
+#        FIXED: characters like < & > fail
+#        FIXED: # hosts left stays at 0 instead of tracking the # correctly.
 # 1.75 - (11.29.12) add final timing line to LOG so can grep for it more easily.
 #         NB: DB version bumped to version 2.00
 # 1.74 - (10.15.12) shortcut final pointless 2s cycle at end
@@ -41,26 +59,29 @@
 # 1.51 -  fixed $padlen for digits that did not have a leading '0'
 
 use strict;
-use Getopt::Long;   # for std option handling: -h --yadda=badda, etc
-use Config::Simple; # for handling (possibly multiple) configuration files
+use warnings;
+use Getopt::Long;      # for std option handling: -h --yadda=badda, etc
+use Config::Simple;    # for handling (possibly multiple) configuration files
 use Socket;
 use Env qw(HOME PATH);
 
 use vars qw( $HOST $CMD $DATEDIR $FORK $DATE $DATEDIR $SHORT_CMD $PWD
-$HOSTLIST $IPFILE $CLUSTER $IP_NMBR $md5list  $wclist %md5h %wch $HOME
-@md5 @wc $tmp @L $N $DEBUG $line $missing_nodes $QHOST $QFILE %APP $RPMDB
-$ALLNODESFILE $cfg %CFG $i $DEBUG $rpmlist $EMAIL_LIST $iter $version $DELAY $DELAY_STR $SCRIPT $LOG
-$help $iprange $target $listgroup $configfile  $fork $nofork $cfg %IPRANGE
-$sz_lrng @lrng @l $n $u $exp $ttl_IPs $IPGRP $localrange %IPRHA $GRP $PRI_LIST
-@pri_names $nbr_pris $ttl $e $f $Ntarget @TARGET @TARGET_IPS @IParr $key $Nels
-$Nnames @Names $NOIPR $NONAMES %DONE $Nscrels  @script $altcfg $IPLISTWIDTH
-$subrange $NPSbits @PSbits $ver $cur_pid %pidhosts $RESULTS_DIR
-$PIDFILE $pidlist @PIDS $active $els $hosts $XTERM $TIMEOUT $TIMEOUT_STR
+  $HOSTLIST $IPFILE $CLUSTER $IP_NMBR $md5list  $wclist %md5h %wch $HOME
+  @md5 @wc $tmp @L $N $DEBUG $line $missing_nodes $QHOST $QFILE %APP $RPMDB
+  $ALLNODESFILE $cfg %CFG $i $DEBUG $rpmlist $EMAIL_LIST $iter $version $DELAY 
+  $DELAY_STR $SCRIPT $LOG
+  $help $iprange $target $listgroup $configfile  $fork $nofork $cfg %IPRANGE
+  $sz_lrng @lrng @l $n $u $exp $ttl_IPs $IPGRP $localrange %IPRHA $GRP $PRI_LIST
+  @pri_names $nbr_pris $ttl $e $f $Ntarget @TARGET @TARGET_IPS @IParr $key $Nels
+  $Nnames @Names $NOIPR $NONAMES %DONE $Nscrels  @script $altcfg $IPLISTWIDTH
+  $subrange $NPSbits @PSbits $ver $cur_pid %pidhosts $RESULTS_DIR
+  $PIDFILE $pidlist @PIDS $active $els $hosts $XTERM $TIMEOUT $TIMEOUT_STR
+  $printlist $prevlist $real_procs $old_procs $SKIP $FILTER %UNRESP
 );
 
 $version = <<VERSION;
 
-clusterfork.pl version 1.75
+clusterfork.pl version 1.82
 <http://moo.nac.uci.edu/~hjm/clusterfork/index.html>
 Copyright Harry Mangalam, OIT, UC Ivine, 2010-2012
 <harry.mangalam\@uci.edu>, <hjmangalam\@gmail.com>
@@ -74,71 +95,100 @@ VERSION
 #$| =1; # uncomment to force flushing
 
 $help = $nofork = 0;
-$fork = 1; # default should be to fork
-$FORK = "FORK"; # ditto
-$iprange = $target = "";
-$rpmlist = "";
-$target = "";
-$NOIPR = 1;
-$NONAMES = 1;
+$fork       = 1;                 # default should be to fork
+$FORK       = "FORK";            # ditto
+$iprange    = $target = "";
+$rpmlist    = "";
+$target     = "";
+$NOIPR      = 1;
+$NONAMES    = 1;
 $configfile = "";
-$altcfg = 0;
-$CMD = "";
-$PIDFILE = "/.pidfile.cf"; # suffix of pidfile, prefix with $DATDIR below
-$hosts="NULL";
-$DELAY=0; # the number of s to delay between issuing commands.
-$DELAY_STR = "";
-$SCRIPT = 0;
-$LOG = 0;
-$TIMEOUT = 3600;
+$altcfg     = 0;
+$CMD        = "";
+$PIDFILE    = "/.pidfile.cf";    # suffix of pidfile, prefix with $DATDIR below
+$hosts      = "NULL";
+$DELAY       = 0;      # the number of s to delay between issuing commands.
+$DELAY_STR   = "";
+$SCRIPT      = 0;
+$LOG         = 0;
+$TIMEOUT     = 3600;
 $TIMEOUT_STR = "";
+$SKIP        = "";
 
 &GetOptions(
-	"help!"        => \$help,       # dump usage, tips
-	"config=s"     => \$configfile, # an alternative config file.
-	"target=s"     => \$target,     # name(s) of target groups
-	# like --target='ICS_2X,ADC_2X' OR  an IP range as in the config file
-	# like 12.23.23.[27:45]
-	"listgroup:s"  => \$listgroup, # dumps named groups and their IP #s.
-	# (or all of them if given alone)
-	"fork!"        => \$fork,      # if defined, fork (default)
-	"version!"     => \$ver,
-	"hosts=s"      => \$hosts,
-	"debug!"       => \$DEBUG,
-	"script!"      => \$SCRIPT,
-	"timeout=s"    => \$TIMEOUT_STR,   # timeout, use same format, processing as delay, below
-	"delay=s"      => \$DELAY_STR, # delay betw issuing commands (to prevent saturation)
+  "help!"    => \$help,          # dump usage, tips
+  "config=s" => \$configfile,    # an alternative config file.
+  "target=s" => \$target,        # name(s) of target groups
+       # like --target='ICS_2X,ADC_2X' OR  an IP range as in the config file
+       # like 12.23.23.[27:45]
+  "listgroup:s" => \$listgroup,    # dumps named groups and their IP #s.
+                                   # (or all of them if given alone)
+  "fork!"       => \$fork,         # if defined, fork (default)
+  "skip=s"      => \$SKIP,         # generally one hostname of IP#
+  "version!"    => \$ver,
+  "hosts=s"     => \$hosts,
+  "debug!"      => \$DEBUG,
+  "script!"     => \$SCRIPT,
+  "timeout=s"   => \$TIMEOUT_STR,    # timeout, use same format, processing as delay, below
+  "delay=s"     => \$DELAY_STR,      # delay betw issuing commands (to prevent saturation)
 );
 
-if ($ver) {print $version; exit;}
-# rationalizing $fork status
-if ($fork == 0)  {$FORK = "NULL";$SCRIPT=0;} # if no fork, assume DON'T want $SCRIPT
-if ($fork == 1)  {$FORK = "FORK";}
+if ($ver) { print $version; exit; }
 
-if ($DELAY_STR ne "" ){$DELAY = &timestr($DELAY_STR);}
+# rationalizing $fork status
+if ( $fork == 0 ) {
+  $FORK   = "NULL";
+  $SCRIPT = 0;
+}    # if no fork, assume DON'T want $SCRIPT
+if ( $fork == 1 ) { $FORK = "FORK"; }
+
+if ( $DELAY_STR ne "" ) { $DELAY = &timestr($DELAY_STR); }
+
 # process timeout if set.  Also have to set it below if --script is called.
-if ($TIMEOUT_STR ne "" ){$TIMEOUT = &timestr($TIMEOUT_STR);}
+if ( $TIMEOUT_STR ne "" ) { $TIMEOUT = &timestr($TIMEOUT_STR); }
 
 if ($DEBUG) {
-	print "DEBUG: # of args = $#ARGV \n";
-	foreach $i (0..$#ARGV){ print "\targ[$i] = $ARGV[$i]\n"};
+  print "DEBUG: # of args = $#ARGV \n";
+  foreach $i ( 0 .. $#ARGV ) { print "\targ[$i] = $ARGV[$i]\n" }
 }
+if ( $SKIP ne "" ) {
+  my @iparr = &GenIPArray($SKIP);
+  for my $h (@iparr) {
+    ( my $hostname, my $ipn ) = &host_lookup($h);
+    $DONE{$ipn} = 1;    # mark it as 'done'.
+  }
+} # parse and enter nodes to skip into the appro hash (along with the IGNORE nodes
 
 # check for existence of alt config file if one was spec'ed
-if ($configfile ne ""){
-	if (-e $configfile && -r $configfile){
-	    if ($DEBUG) {print STDERR "DEBUG: Alternative readable clusterforkrc file found at [$configfile]\n";}
-	    $cfg = new Config::Simple($configfile);
-	    $altcfg = 1;
-	} else {die "FATAL: Alt config file [$configfile] doesn't exist or it isn't readable.\n";}
+if ( $configfile ne "" ) {
+  if ( -e $configfile && -r $configfile ) {
+    if ($DEBUG) {
+      print STDERR
+"DEBUG: Alternative readable clusterforkrc file found at [$configfile]\n";
+    }
+    $cfg    = new Config::Simple($configfile);
+    $altcfg = 1;
+  } else {
+    die
+"FATAL: Alt config file [$configfile] doesn't exist or it isn't readable.\n";
+  }
 
-# Read the $HOME/.clusterforkrc file to bring in the 'normal' values.
-# does it exist
-} elsif ($altcfg == 0 && -e "$HOME/.clusterforkrc" && -r "$HOME/.clusterforkrc") {
-    if ($DEBUG) {print STDERR "DEBUG: No Alt config file; looking for [$HOME/.clusterforkrc]\n";}
-    $cfg = new Config::Simple("$HOME/.clusterforkrc");
-} else { # it really is a virgin install.
-	print STDERR <<FIRSTTIME;
+  # Read the $HOME/.clusterforkrc file to bring in the 'normal' values.
+  # does it exist
+} elsif ( $altcfg == 0
+  && -e "$HOME/.clusterforkrc"
+  && -r "$HOME/.clusterforkrc" )
+{
+  if ($DEBUG) {
+    print STDERR
+      "DEBUG: No Alt config file; looking for [$HOME/.clusterforkrc]\n";
+  }
+  print STDERR "Starting to read ~/.clusterforkrc..  If you don't see '..DONE' in 
+  2 seconds, you probably have a problem with format of your .clusterforkrc\n";
+  $cfg = new Config::Simple("$HOME/.clusterforkrc");
+  print STDERR "..DONE\n";
+} else {    # it really is a virgin install.
+  print STDERR <<FIRSTTIME;
 
 	It looks like this is the 1st time you've run clusterfork
 	as this user on this system.  An example .clusterforkrc file
@@ -161,8 +211,9 @@ if ($configfile ne ""){
 
 FIRSTTIME
 
-	open CFRC, ">>$HOME/.clusterforkrc" or die "ERROR: Can't write rc file skeleton to $HOME/.clusterforkrc\n";
-	print CFRC <<SKELETON;
+  open CFRC, ">>$HOME/.clusterforkrc"
+    or die "ERROR: Can't write rc file skeleton to $HOME/.clusterforkrc\n";
+  print CFRC <<SKELETON;
 
 # This is the config file for the 'clusterfork' application which executes
 # commands on a range of machines defined as below.  Use 'clusterfork -h'
@@ -191,6 +242,9 @@ FIRSTTIME
     # email admins with updated install info.
     INSTALLCMD = "yum install -y"
     PATH  = "/usr/local/bin:/sge62/bin/lx24-amd64:/usr/bin:/bin:/usr/sbin"
+    # FILTEROUT contains strings that you want filtered out of the output
+    # for various reasons. One below is to remove spurious X11 warnings
+    FILTEROUT = "No xauth data|untrusted X11"
 
 
 [SGE]
@@ -204,8 +258,11 @@ FIRSTTIME
 
 
 [APPS]
+    # most of these apps are optional, tho mc is strongly recommended for
+    # viewing output.  xterm (whatever terminal app you define it as) is
+    # useful bc you can usually use mouse actions to control mc which are
+    # sometimes lost in a text terminal.
     yum   = /usr/bin/yum
-    diff  = /usr/bin/diff
     mutt  = /usr/bin/mutt
     mc    = /usr/bin/mc
     xterm = /usr/bin/gnome-terminal
@@ -246,7 +303,6 @@ FIRSTTIME
     # QHOST = SCRIPT:"ssh hmangala\@bduc-login \"qhost |grep amd64 | grep -v ' - ' |grep -v claw | scut --c1=0 | perl -e 's/\\n/ /gi' -p\""
 
 
-
 [GROUPS]
 
 # GROUPS can be composed of primary IPRANGE groups as well as other
@@ -257,21 +313,24 @@ FIRSTTIME
 
 SKELETON
 
-   exit(0);
+  exit(0);
 }
 
 # dump usage if it's indicated.
-if (($#ARGV < 0 || $help) && (!defined $listgroup)){
-   usage();
+if ( ( $#ARGV < 0 || $help ) && ( !defined $listgroup ) ) {
+  usage();
 }
 
 # Now dump the cfg to see how it looks
 #if ($DEBUG) {%CFG = $cfg->vars();}
 #
-%CFG = $cfg->vars(); # load %CFG with all the vars from the config file.
+%CFG = $cfg->vars();    # load %CFG with all the vars from the config file.
+
 # if (defined $ARGV[0]) {$CMD = $ARGV[0];} # the CMD should be the only thing that's not provided by getopt
 
-$PWD = `pwd`; chomp $PWD;
+$PWD = `pwd`;
+chomp $PWD;
+
 #$DATE=`date +"%T_%F" | sed 's/:/./g' `; chomp $DATE;
 $QHOST = 0;
 
@@ -281,66 +340,81 @@ $IPLISTWIDTH = $CFG{'ADMIN.IPLISTWIDTH'};
 
 # these could all just be replaced with the config entry but leave for now.
 # SGE Env vars for sudo
-$ENV{'SGE_CELL'}         =  $CFG{'SGE.CELL'};
-$ENV{'SGE_JOB_DIR'}      =  $CFG{'SGE.JOB_DIR'};
-$ENV{'SGE_EXECD_PORT'}   =  $CFG{'SGE.EXECD_PORT'};
-$ENV{'SGE_QMASTER_PORT'} =  $CFG{'SGE.QMASTER_PORT'};
-$ENV{'SGE_ROOT'}         =  $CFG{'SGE.ROOT'};
+$ENV{'SGE_CELL'}         = $CFG{'SGE.CELL'};
+$ENV{'SGE_JOB_DIR'}      = $CFG{'SGE.JOB_DIR'};
+$ENV{'SGE_EXECD_PORT'}   = $CFG{'SGE.EXECD_PORT'};
+$ENV{'SGE_QMASTER_PORT'} = $CFG{'SGE.QMASTER_PORT'};
+$ENV{'SGE_ROOT'}         = $CFG{'SGE.ROOT'};
 
 # ADMIN def from config file
 $RPMDB       = $CFG{'ADMIN.RPMDB'};
 $EMAIL_LIST  = $CFG{'ADMIN.EMAIL_LIST'};
 $ENV{'PATH'} = $CFG{'ADMIN.PATH'};
 $RESULTS_DIR = $CFG{'ADMIN.RESULTS_DIR'};
-if (defined $RESULTS_DIR && $RESULTS_DIR ne ""){ # attempt to make the dir
-	(-d $RESULTS_DIR) || mkdir $RESULTS_DIR;
-	$RESULTS_DIR .= "/"; # to set up the string prefix correctly
-} else {$RESULTS_DIR = "";} # results will be written in the current dir.
+$FILTER      = $CFG{'ADMIN.FILTEROUT'};
+if ( defined $RESULTS_DIR && $RESULTS_DIR ne "" ) {    # attempt to make the dir
+  ( -d $RESULTS_DIR ) || mkdir $RESULTS_DIR;
+  $RESULTS_DIR .= "/";    # to set up the string prefix correctly
+} else {
+  $RESULTS_DIR = "";
+}    # results will be written in the current dir.
 
 # test for all the defined APPS
-foreach $key (keys %CFG){
-	if ($DEBUG) {print STDERR "DEBUG: key: $key =>  $CFG{$key}\n";}
-	if ($key =~ /APPS/){
-		if ($DEBUG) {print STDERR "\tDEBUG: key: $key =>  $CFG{$key}\n";}
-		if (-f $CFG{$key} &&  -x $CFG{$key}) {
-			if ($DEBUG) {print "DEBUG: $key: $CFG{$key} is OK\n";}
-		} else { die "ERROR: [$CFG{$key}] not found or not executable!! FIX IT!!!\n";}
-	}
+foreach $key ( keys %CFG ) {
+  if ($DEBUG) { print STDERR "DEBUG: key: $key =>  $CFG{$key}\n"; }
+  if ( $key =~ /APPS/ ) {
+    if ($DEBUG) { print STDERR "\tDEBUG: key: $key =>  $CFG{$key}\n"; }
+    if ( -f $CFG{$key} && -x $CFG{$key} ) {
+      if ($DEBUG) { print "DEBUG: $key: $CFG{$key} is OK\n"; }
+    } else {
+      die "ERROR: [$CFG{$key}] not found or not executable!! FIX IT!!!\n";
+    }
+  }
 }
 $XTERM = $CFG{'APPS.xterm'};
 
 # the following is specific to
 # if a 'yum install', write requested RPMs to DB
-if ($CMD =~ /yum install/) {
-   my $offset = 12;
-   if ($CMD =~ /yum install -y /){$offset = 15;}
-   $rpmlist = substr($CMD,$offset);
-   open DB, ">>$RPMDB" or die "Can't open [$RPMDB] .. arrrrrrgh!\n";
-   print DB "$DATE\t$rpmlist\n";
-   close DB;
-   if ($DEBUG){&debug(__LINE__, "RPMLIST = [$rpmlist]\n")}
-   # & mail to people to tell them a new list is available
-   system("cat $RPMDB | $CFG{'APPS.mutt'} -s 'New RPM install list from BDUC'  $EMAIL_LIST");
+if ( $CMD =~ /yum install/ ) {
+  my $offset = 12;
+  if ( $CMD =~ /yum install -y / ) { $offset = 15; }
+  $rpmlist = substr( $CMD, $offset );
+  open DB, ">>$RPMDB" or die "Can't open [$RPMDB] .. arrrrrrgh!\n";
+  print DB "$DATE\t$rpmlist\n";
+  close DB;
+  if ($DEBUG) { &debug( __LINE__, "RPMLIST = [$rpmlist]\n" ) }
+
+  # & mail to people to tell them a new list is available
+  system(
+"cat $RPMDB | $CFG{'APPS.mutt'} -s 'New RPM install list from BDUC'  $EMAIL_LIST"
+  );
 }
 
-
 # Create the vars and set up the dir for holding the log info
-if (defined $ARGV[0]) {$CMD = $ARGV[0];} # the CMD should be the only thing that's not provided by getopt
-$DATE=`date +"%T_%F" | sed 's/:/./g' `; chomp $DATE;
-$SHORT_CMD = substr($CMD,0,20); # chop it
-# apologies for the following regex..
-$SHORT_CMD =~ s/[\n\=\`\"\|\ \\\/\;\~\!\@\#\$\%\^\&\*\+\(\)\{\}\[\]\{\}]/-/g; # and sub '::' for ';'
-$DATEDIR = $RESULTS_DIR . "REMOTE_CMD-" . $SHORT_CMD . "-" . $DATE;
-$PIDFILE = $DATEDIR . $PIDFILE;
-if (defined $FORK && $FORK eq "FORK" && !defined $listgroup){
-	#print "INFO: Creating dir [$DATEDIR]..";
-	mkdir $DATEDIR or die "ERROR: Can't mkdir [$DATEDIR] at [$PWD]!\n";
-} else {$FORK = "NULL";}
+if ( defined $ARGV[0] ) {
+  $CMD = $ARGV[0];
+}    # the CMD should be the only thing that's not provided by getopt
+$DATE = `date +"%T_%F" | sed 's/:/./g' `;
+chomp $DATE;
+$SHORT_CMD = substr( $CMD, 0, 20 );    # chop it
 
-if ($SCRIPT) { # if scripting, need to log output for afterwards.
-	open (LOG, "> $DATEDIR/LOG");
-	select(LOG); # and now all output goes to the LOG until a diff select().
-	if ($TIMEOUT == 0) {$TIMEOUT = 600;} # set a reasonable default
+# apologies for the following regex..
+$SHORT_CMD =~ s/[\n\=\`\"\|\ \\\/\;\~\!\@\#\$\%\^\&\<\>\*\+\(\)\{\}\[\]\{\}]/-/g
+  ;                                    # and sub '::' for ';'
+$DATEDIR = $RESULTS_DIR . "CF-" . $SHORT_CMD . "-" . $DATE;
+$PIDFILE = $DATEDIR . $PIDFILE;
+if ( defined $FORK && $FORK eq "FORK" && !defined $listgroup ) {
+
+  #print "INFO: Creating dir [$DATEDIR]..";
+  mkdir $DATEDIR or die "ERROR: Can't mkdir [$DATEDIR] at [$PWD]!\n";
+} else {
+  $FORK = "NULL";
+}
+
+if ($SCRIPT) {    # if scripting, need to log output for afterwards.
+  open( LOG, "> $DATEDIR/LOG" );
+  select(LOG);    # and now all output goes to the LOG until a diff select().
+  if ( $TIMEOUT == 0 ) { $TIMEOUT = 600; }    # set a reasonable default
 }
 
 # Process targets specified with the commandline option
@@ -348,284 +422,401 @@ if ($SCRIPT) { # if scripting, need to log output for afterwards.
 # IP #s.  If the options specify it by GROUPS or SUPERGROUPS, we have to read in all
 # the GROUPS and generate the supergroups and THEN ssh out the commands.
 
+if ($DEBUG) { print STDERR "INFO: Processing targets..\n"; }
 
-if ($DEBUG) {print STDERR "INFO: Processing targets..\n";}
 # like  --target='12.23.24.[45:88]; 34.3.23.[11:45]'
 # need to load targets into @TARGET to reference the config groups, and gen IPRANGES
 # to load into @TARGET_IPS
 
 # if target has a range implied by [....]
 # submit straight to the $NOIPR = 0; # record that we're targeting IP #s
-if (($target =~ /\[/ && $target =~ /\]/)|| ($hosts ne "NULL")) {
-	if ($hosts ne "NULL") {$Ntarget = @TARGET = split(/\s+/,$hosts);}
-	else {                 $Ntarget = @TARGET = &GenIPArray($target);}
-	$IPGRP = "CMDLINE";
-	if ($DEBUG) {
-		print STDERR "DEBUG: \@TARGET list: @TARGET\n";
-	}
-		print <<CMDLINE;
+if ( ( $target =~ /\[/ && $target =~ /\]/ ) || ( $hosts ne "NULL" ) ) {
+  if ( $hosts ne "NULL" ) { $Ntarget = @TARGET = split( /\s+/, $hosts ); }
+  else                    { $Ntarget = @TARGET = &GenIPArray($target); }
+  $IPGRP = "CMDLINE";
+  if ($DEBUG) {
+    print STDERR "DEBUG: \@TARGET list: @TARGET\n";
+  }
+  print <<CMDLINE;
 ======================================================
 	Processing nodes specified on commandline
 ======================================================
 
 CMDLINE
 
+  my $left = my $right = 0;
+  $NOIPR = 0;
+  foreach $HOST (@TARGET) {
+    if ( !defined $DONE{$HOST} ) {
+      $IPRHA{$IPGRP}[ $left++ ] = $IParr[ $right++ ];
 
-	my $left = 	my $right = 0;
-	$NOIPR = 0;
-	foreach $HOST (@TARGET) {
-		if (!defined $DONE{$HOST}) {
-			$IPRHA{$IPGRP}[$left++] = $IParr[$right++];
-			#print STDERR "[$HOST] execs [$CMD] [$FORK]\n";
-			&host_loop($HOST, $CMD, $DATEDIR, $FORK, $PIDFILE);
-			$DONE{$HOST} = 1; # to mark it as done.
-		} else {
-			print STDERR "WARN: Skipping host [$HOST]. Already processed or part of IGNORE group\n";
-			$right++;
-		}
-	}
+      &host_loop( $HOST, $CMD, $DATEDIR, $FORK, $PIDFILE, %UNRESP );
+      $DONE{$HOST} = 1;    # to mark it as done.
+    } else {
+      print STDERR
+"WARN: Skipping host [$HOST]. Already processed or part of IGNORE group\n";
+      $right++;
+    }
+  }
 }
 
+if ( $NOIPR || defined $listgroup ) {
 
-if ($NOIPR || defined $listgroup) {
+  # process the IPRANGES fields to create the IP arrays.
+  foreach $key ( keys %CFG ) {
 
-	# process the IPRANGES fields to create the IP arrays.
-	foreach $key (keys %CFG){
-#		print "DEBUG: key: $key, value: $CFG{$key}\n";
-		if ($key =~ /IPRANGE/) {
-			@l = split /\./, $key;
-			$IPGRP = $l[1];
-			if ($CFG{$key} =~ /SCRIPT/) { # script has to generate a space-delimited array of hosts
-				$Nscrels = @script = split /:/, $CFG{$key};
-				if ($Nscrels <3) { # if it's of the form SCRIPT:`script`
-					$Nels = @IParr = split /\s+/, `$script[1]`;
-	#				if ($DEBUG) {
-					if ($DEBUG) {
-						print STDERR "\nDEBUG: [$Nels] elements from [$key] script [$script[1]]";
-						foreach my $tr (@IParr){print STDERR "$tr ";}
-						print STDERR "\n\n";
-					}
-				}
-			} else {
-				$IPRANGE{$IPGRP} = $CFG{$key};
-				if (($IPRANGE{$IPGRP} =~ '\[' && $IPRANGE{$IPGRP} =~ '\]') || $IPRANGE{$IPGRP} =~ ';') {
-				    $Nels = @IParr = &GenIPArray($IPRANGE{$IPGRP});
-				} else {  # it's probably a single hostname'
-				    $Nels = 1; $IParr[0] = $IPRANGE{$IPGRP}; $#IParr = 0;
-				}
-			}
-			$i = 0;
-			foreach $HOST (@IParr){
-				if ($IPGRP eq "IGNORE"){
-					if ($DEBUG) {print STDERR "DEBUG:\tAdding [$IParr[$i]] to DONE\n";}
-					$DONE{$IParr[$i]} = 1; # mark it as 'done'.
-				}
-				# loading $IPRHA to process later
-				$IPRHA{$IPGRP}[$i] = $IParr[$i];
-				$i++;
-			}
-		}
-	}
+    if ( $key =~ /IPRANGE/ ) {
+      @l = split /\./, $key;
+      $IPGRP = $l[1];
+      if ( $CFG{$key} =~ /SCRIPT/ )
+      {    # script has to generate a space-delimited array of hosts
+        $Nscrels = @script = split /:/, $CFG{$key};
+        if ( $Nscrels < 3 ) {    # if it's of the form SCRIPT:`script`
+          $Nels = @IParr = split /\s+/, `$script[1]`; # bactick-exec the script.
 
-	# and now sum into the 'supergroups'
-	foreach $key (keys %CFG){
-		if ($key =~ /GROUPS/) {
-			@l = split /\./, $key;
-			$GRP = $l[1]; # like ADC_ALL
-			$PRI_LIST = $CFG{$key}; # like 'ADC_2X + ADC_4X + CLAWS'
-			$PRI_LIST =~ s/ //g; # delete all spaces away
-			$nbr_pris = @pri_names = split /\+/,$PRI_LIST;
-			$ttl = 0;
-			for ($e=0; $e<$nbr_pris;$e++) {
-				if ($DEBUG) {print STDERR "DEBUG: for Group [$GRP], adding [$pri_names[$e]] payload\n";}
-				$f=0;
-				while (defined $IPRHA{$pri_names[$e]}[$f]) {
-					$IPRHA{$GRP}[$ttl] = $IPRHA{$pri_names[$e]}[$f];
-					$ttl++; $f++;
-				}
-				if ($DEBUG) {print STDERR "DEBUG:\tfor [$pri_names[$e]], array ends at [$f], ttl for [$GRP] now [$ttl]\n";}
-			}
-		}
-	}
-	# so now process all the NAMED targets (at this point, it's either a GROUP or SUPERGROUP).
-	if ($NOIPR && $target =~ /[\D]*/) { # GROUPS or IPRange groups - same format as GROUPS (NAME1 + NAME2 + Name# ...)
-		$NONAMES = 0;
-		$Nnames = @Names = split /[ ;,]/, $target;
-		foreach my $name (@Names) {
-			if (defined $IPRHA{$name}[0]) {
-				print <<RESTOFEM;
+# Comment: this is a good general purpose approach, but if we're doing lots and lots of executions of 'qhost'
+# it would be better to suck the output into a variable and process it internally, rather than repeatedly exec'ing
+# qhost.  Could do this in a config file way by defining HAVE_SGE in the config file and then execing qhost into a var
+# to be processed to provide the different breakout values.  On the other hand, saves maybe 2s on each execution of cf.
+# ie cf --list takes 1.4s.  Probably not worth it
+
+          if ($DEBUG) {
+            print STDERR
+              "\nDEBUG: [$Nels] elements from [$key] script [$script[1]]";
+            foreach my $tr (@IParr) { print STDERR "$tr "; }
+            print STDERR "\n\n";
+          }
+        }
+      } else {
+        $IPRANGE{$IPGRP} = $CFG{$key};
+        if ( ( $IPRANGE{$IPGRP} =~ '\[' && $IPRANGE{$IPGRP} =~ '\]' )
+          || $IPRANGE{$IPGRP} =~ ';' )
+        {
+          $Nels = @IParr = &GenIPArray( $IPRANGE{$IPGRP} );
+        } else {    # it's probably a single hostname'
+          $Nels     = 1;
+          $IParr[0] = $IPRANGE{$IPGRP};
+          $#IParr   = 0;
+        }
+      }
+      $i = 0;
+      foreach $HOST (@IParr) {
+        if ( $IPGRP eq "IGNORE" && $HOST ne "" ) {
+          if ($DEBUG) { print STDERR "DEBUG:\tAdding [$IParr[$i]] to DONE\n"; }
+          # check to see that its in the right format (IP#)
+          ( my $hostname, my $ipn ) = &host_lookup($HOST);
+          # print "DD: $hostname = $ipn\n";
+          $DONE{$ipn} = 1;    # mark it as 'done'.
+        }
+        # loading $IPRHA to process later
+        $IPRHA{$IPGRP}[$i] = $IParr[$i];
+        $i++;
+      }
+    }
+  }
+
+  # and now sum into the 'supergroups'
+  foreach $key ( keys %CFG ) {
+    if ( $key =~ /GROUPS/ ) {
+      @l        = split /\./, $key;
+      $GRP      = $l[1];              # like ADC_ALL
+      $PRI_LIST = $CFG{$key};         # like 'ADC_2X + ADC_4X + CLAWS'
+      $PRI_LIST =~ s/ //g;            # delete all spaces away
+      $nbr_pris = @pri_names = split /\+/, $PRI_LIST;
+      $ttl = 0;
+      for ( $e = 0 ; $e < $nbr_pris ; $e++ ) {
+        if ($DEBUG) {
+          print STDERR
+            "DEBUG: for Group [$GRP], adding [$pri_names[$e]] payload\n";
+        }
+        $f = 0;
+        while ( defined $IPRHA{ $pri_names[$e] }[$f] ) {
+          $IPRHA{$GRP}[$ttl] = $IPRHA{ $pri_names[$e] }[$f];
+          $ttl++;
+          $f++;
+        }
+        if ($DEBUG) { print STDERR "DEBUG:\tfor [$pri_names[$e]], array ends at [$f], ttl for [$GRP] now [$ttl]\n"; }
+      }
+    }
+  }
+
+
+# so now process all the NAMED targets (at this point, it's either a GROUP or SUPERGROUP).
+  if ( $NOIPR && $target =~ /[\D]*/ )
+  { # GROUPS or IPRange groups - same format as GROUPS (NAME1 + NAME2 + Name# ...)
+    $NONAMES = 0;
+    $Nnames = @Names = split /[ ;,]/, $target;
+    foreach my $name (@Names) {
+      if ( defined $IPRHA{$name}[0] ) {
+        print <<RESTOFEM;
 ======================================================
     Processing [$name]
 ======================================================
 
 RESTOFEM
 
-	#			&pause;
-				$i = 0;
-				while (defined $IPRHA{$name}[$i]) {
-					if (defined $DONE{$IPRHA{$name}[$i]}) {
-						print STDERR "WARN: Skipping [$IPRHA{$name}[$i]]. Already processed or part of IGNORE group\n";
-					} else {
-#					    print "CMD:  host_loop($IPRHA{$name}[$i], $CMD, $DATEDIR, $FORK,$PIDFILE); \n ";
-						&host_loop($IPRHA{$name}[$i], $CMD, $DATEDIR, $FORK, $PIDFILE);
-						$DONE{$IPRHA{$name}[$i]} = 1; # to mark it as done.
-					}
-					$i++;
-				}
-			} else {die "ERROR: UNDEFINED GROUP NAME [$name]\n";}
-		}
-	} elsif ($NOIPR && $NONAMES) {
-		print STDERR "BAD ENDING: NOIPR = [$NOIPR], NONAMES=[$NONAMES]\n";
-		&pause;
-		die "ERROR: The target you specified [$target] isn't an IP range or a valid GROUP name";
-	}
+        $i = 0;
+        while ( defined $IPRHA{$name}[$i] ) {
+          if ( defined $DONE{ $IPRHA{$name}[$i] } ) {
+            print STDERR
+"WARN: Skipping [$IPRHA{$name}[$i]]. Already processed or part of IGNORE/SKIP group\n";
+          } else {
+            &host_loop( $IPRHA{$name}[$i], $CMD, $DATEDIR, $FORK, $PIDFILE, %UNRESP );
+            $DONE{ $IPRHA{$name}[$i] } = 1;    # to mark it as done.
+          }
+          $i++;
+        }
+      } else {
+        die "ERROR: UNDEFINED GROUP NAME [$name]\n";
+      }
+    }
+  } elsif ( $NOIPR && $NONAMES ) {
+    print STDERR "BAD ENDING: NOIPR = [$NOIPR], NONAMES=[$NONAMES]\n";
+    &pause;
+    die
+"ERROR: The target you specified [$target] isn't an IP range or a valid GROUP name";
+  }
 }
 
 # this is a 'good' ending
-if ($DEBUG){print STDERR "Good ending: NOIPR = [$NOIPR], NONAMES=[$NONAMES]\n"; &pause;}
+if ($DEBUG) {
+  print STDERR "Good ending: NOIPR = [$NOIPR], NONAMES=[$NONAMES]\n";
+  &pause;
+}
 
 # process listgroups
-if (defined $listgroup){
-		if ($listgroup ne '') {
-		$Nnames = @Names = split /[ ;,]/, $listgroup;
-		foreach my $name (@Names){
-			print "\n\nIP List for [$name]:\n";
-			$f = 0;
-			while (defined $IPRHA{$name}[$f]){
-				my $r = 0;
-				while ($r<$IPLISTWIDTH && defined $IPRHA{$name}[$f]) { printf STDERR "$IPRHA{$name}[$f++] "; $r++;}
-				print "\\\n"; $r=0;
-			}
-		}
-		print "\n";
-	} elsif ($listgroup eq '') { # dump all listgroups
-		print "\n\nIP List for ALL GROUPS:\n";
-		foreach my $name (keys %IPRHA) {
-			print "\nIP List for [$name]:\n";
-			$f = 0;
-			while (defined $IPRHA{$name}[$f]){
-				my $r = 0;
-				while ($r<$IPLISTWIDTH && defined $IPRHA{$name}[$f]) { printf STDERR "$IPRHA{$name}[$f++] "; $r++;}
-				print "\\\n"; $r=0;
-			}
-		}
-	}
+if ( defined $listgroup ) {
+  if ( $listgroup ne '' ) {
+    $Nnames = @Names = split /[ ;,]/, $listgroup;
+    foreach my $name (@Names) {
+      print "\n\nIP List for [$name]:\n";
+      $f = 0;
+      while ( defined $IPRHA{$name}[$f] ) {
+        my $r = 0;
+        while ( $r < $IPLISTWIDTH && defined $IPRHA{$name}[$f] ) {
+          printf STDERR "$IPRHA{$name}[$f++] ";
+          $r++;
+        }
+        print "\\\n";
+        $r = 0;
+      }
+    }
+    print "\n";
+  } elsif ( $listgroup eq '' ) {    # dump all listgroups
+    print "\n\nIP List for ALL GROUPS:\n";
+    foreach my $name ( keys %IPRHA ) {
+      print "\nIP List for [$name]:\n";
+      $f = 0;
+      while ( defined $IPRHA{$name}[$f] ) {
+        my $r = 0;
+        while ( $r < $IPLISTWIDTH && defined $IPRHA{$name}[$f] ) {
+          printf "$IPRHA{$name}[$f++] ";
+          $r++;
+        }
+        # add terminal '\' to each line to format it for consumption for other cmdline utils.
+        print "\\\n"; 
+        $r = 0;
+      }
+    }
+  }
 }
 
-
-if (defined $listgroup) {exit 0;}
+if ( defined $listgroup ) { exit 0; }
 local $| = 1;
-if ($FORK eq "NULL") {exit(0);} # if we've been doing this serially, there's no need to go further.
+if ( $FORK eq "NULL" ) {
+  exit(0);
+}    # if we've been doing this serially, there's no need to go further.
+
 # Now organize all the output of the forked processes
 
-open(PID, "<$PIDFILE") or die "Can't open the PID file[$PIDFILE]\n";
-my $e =0;
+open( PID, "<$PIDFILE" ) or die "Can't open the PID file[$PIDFILE]\n";
+my $e = 0;
 $pidlist = "";
-while (<PID>){ # should be only a list of numeric PIDs and hostnames as PID:HOST
-	chomp;
-	my $n3 = my @l3 = split(/:/,$_);
-	$PIDS[$e] = $l3[0];
-	$pidhosts{$l3[0]} = $l3[1]; # hash indexed by PID, filter the still-running ones below
-	$pidlist .= $PIDS[$e] . " ";
-	$e++;
+while (<PID>)
+{    # should be only a list of numeric PIDs and hostnames as PID:HOST
+  chomp;
+  my $n3 = my @l3 = split( /:/, $_ );
+  $PIDS[$e] = $l3[0];
+  $pidhosts{ $l3[0] } =
+    $l3[1];    # hash indexed by PID, filter the still-running ones below
+  $pidlist .= $PIDS[$e] . " ";
+  $e++;
 }
 
-$active = $e + 1; # to set up the while loop below
-$els = $#PIDS; # get the real size of the starting array of PIDs
-print "\n==========================================\n  # of processes at start: [", $els+1, "]\n";
+$active = $e + 1;    # to set up the while loop below
+$els    = $#PIDS;    # get the real size of the starting array of PIDs
+print
+  "\n==========================================\n  # of processes at start: [",
+  $els + 1, "]\n";
 
+$printlist = $prevlist = "";
+my $secs = $old_procs = 0;
+while ( $active > 1 ) {    # '1' for 1 line of ps header without any processes
+      # keep track of still-running hosts by filtering %pidhosts.
+  $real_procs = 0;
+  my $PIDLIST = `ps -p $pidlist`;
+  $n = @l = split( /\s+/, `ps -p $pidlist |wc` )
+    ;    # get # of running background processes.
+  $active     = $l[1];       # should really be '-1' but then would have to '+1'
+  $real_procs = $active - 1;
+  if ( $real_procs == 0 ) {last;} # this should fix the pointless 2s hang at end.
+  my $tmpstr =
+`ps -p  $pidlist  |tail -n+2 | sed "s/^ *//;  s/ \{1,\}/ /g" | cut -f1 -d' '| tr "\n" " " `;
+  my $nn = my @ll = split( /\s+/, $tmpstr );    # now in a list
 
-my $secs = 0;
-while ($active > 1) { # '1' for 1 line of ps header without any processes
-	# keep track of still-running hosts by filtering %pidhosts.
-	my $real_procs = 0;
-	my $PIDLIST = `ps -p $pidlist`;
-	$n = @l = split(/\s+/,`ps -p $pidlist |wc`); # get # of running background processes.
-#	$active = $l[1]; # should really be '-1' but then would have to '+1'
-#	$real_procs = $active - 1;
-	my $tmpstr = `ps -p  $pidlist  |tail -n+2 | sed "s/^ *//;  s/ \{1,\}/ /g" | cut -f1 -d' '| tr "\n" " " `;
-	my $nn = my @ll = split (/\s+/, $tmpstr); # now in a list
-	print "\nWaiting for <= [$real_procs] hosts @ [$secs] sec:\n\t";
-	my $t = 0;
-	foreach my $rpid (@ll){
-		$t++;
-		print "$pidhosts{$rpid} ";
-		if ($t > 10) {print "\n\t"; $t = 0} # insert a newline if it gets too wide.
-	};
-	$active = $l[1]; # should really be '-1' but then would have to '+1'
-	$real_procs = $active - 1;
-	sleep 2; $secs += 2;
+#	print "\nDEBUG: real_procs:  [$real_procs]\n	        old_procs: [$old_procs]\n";
+  if ( $secs >= 2 && $real_procs == $old_procs ) {
+    print "\r .. Still waiting for <= [$real_procs] hosts @ [$secs] sec\r";
+  } else {
+    print "\nWaiting for <= [$real_procs] hosts @ [$secs] sec:\n\t";
+  }
+  my $t = 0;
 
-	if ($secs > $TIMEOUT) {
-		print "\n\n\nERROR: clusterfork ran longer than cutoff [--timeout=$TIMEOUT].\nIf run in a script, check $DATEDIR/LOG for zombie nodes.\n\n";
-		my $LOGTAIL =  `tail -22 $DATEDIR/LOG`;
-		die "LOG finishes with: $LOGTAIL\n\n";
-	}
+  my $printlist = "";
+  foreach my $rpid (@ll) {
+    $t++;
+    $printlist .= "$pidhosts{$rpid} ";
+    if ( $t > 5 ) {
+      $printlist .= "\n\t";
+      $t = 0;
+    }    # insert a newline if it gets too wide.
+  }
+
+  if ( $printlist ne $prevlist ) {
+    print "$printlist\n";
+    $old_procs = $real_procs;
+    $prevlist  = $printlist;
+  }
+
+  $active     = $l[1];       # should really be '-1' but then would have to '+1'
+  $real_procs = $active - 1;
+  sleep 2;
+  $secs += 2;
+
+  if ( $secs > $TIMEOUT ) {
+    print
+"\n\n\nERROR: clusterfork ran longer than cutoff [--timeout=$TIMEOUT].\nIf run in a script, check $DATEDIR/LOG for zombie nodes.\n\n";
+    my $LOGTAIL = `tail -22 $DATEDIR/LOG`;
+    die "LOG finishes with: $LOGTAIL\n\n";
+  }
 }
 $secs--;
 print "\n... Finished at [$secs]! \n\n";
 
-unlink $PIDFILE;  # don't need $PIDFILE anymore
+unlink $PIDFILE;    # don't need $PIDFILE anymore
 
-if ($FORK eq "FORK"){
-   print "\nYou can find the results of your command in the dir\n\t[ $DATEDIR ]\n";
-   $md5list = `cd $DATEDIR; md5sum * | sort`;
-   chomp $md5list;
-   $wclist = `cd $DATEDIR; wc * | grep -v total | sort -g`;
-   chomp $wclist;
-   $N = @md5 = split(/\n/,$md5list);
-   foreach $line (@md5) {
-      chomp $line;
-      $line =~ s/^\s+//; # trim off leading whitespace
-      $N = @L = split(/\s+/,$line);
-      if ($N != 2){print STDERR "ERROR: Unexpected # of fields [$N] splitting md5 input line: [$line])\n";}
-      else {
-	 $md5h{$L[0]} .= "$L[1]" . " "; # $md5{md5sum} = add to host list
-      }
-   }
+if ( $FORK eq "FORK" ) {
+  print
+    "\nYou can find the results of your command in the dir\n\t[ $DATEDIR ]\n";
+  # generate md5 list
+  $md5list = `cd $DATEDIR; md5sum * | sort`;
+  chomp $md5list;
+  # generate wc list
+  $wclist = `cd $DATEDIR; wc * | grep -v total | sort -g`;
+  chomp $wclist;
+  $N = @md5 = split( /\n/, $md5list );
 
-   $N = @wc = split(/\n/,$wclist);  # and now for the wc data
+  foreach $line (@md5) {
+    chomp $line;
+    $line =~ s/^\s+//;    # trim off leading whitespace
+    $N = @L = split( /\s+/, $line );
+    if ( $N != 2 ) {
+      print STDERR
+"ERROR: Unexpected # of fields [$N] splitting md5 input line: [$line])\n";
+    } else {
+      # hash indexed by file name
+      $md5h{ $L[0] } .= "$L[1]" . " ";    # $md5{md5sum} = add to host list
+    }
+  }
 
-   foreach my $line (@wc) {
-      chomp $line;
-      $line =~ s/^\s+//; # trim off leading whitespace
-      $N = @L = split(/\s+/,$line);
-      if ($N != 4){print STDERR "ERROR: Unexpected # of fields [$N] splitting wc input line: [$line]\n";}
-      else {$wch{$L[3]} = $L[0] . " " . $L[1]. " " . $L[2];}
-   }
-   # write analysis to disk in $DATEDIR
-   open OUT, ">$DATEDIR/Summary" or die "Can't open the summary file\n";
-   print OUT "Summary of contents for files in $DATEDIR\n";
-   print OUT "Each line denotes MD5 identical output; wordcount shows similarity\n";
-   print OUT "Command: [$CMD]\n";
-   if ($QHOST) {print OUT "\n NOTE: MISSING NODES:\n$missing_nodes\n";}
-   print OUT "========================================================================\n";
+  $N = @wc = split( /\n/, $wclist );      # and now for the wc data
 
-	print OUT " line / word / chars | # |  hosts ->\n";   foreach $key (keys %md5h){
-    my $n = my @l = split(/\s+/, $md5h{$key});
-	printf OUT "%20s  %3d  %s\n", $wch{$l[0]}, $n, $md5h{$key}; # wc #  host_list
-   }
-   close OUT;
+  foreach my $line (@wc) {
+    chomp $line;
+    $line =~ s/^\s+//;                    # trim off leading whitespace
+    $N = @L = split( /\s+/, $line );
+    if ( $N != 4 ) {
+      print STDERR
+        "ERROR: Unexpected # of fields [$N] splitting wc input line: [$line]\n";
+    } else { # reformat/compress the wc output 
+      # hash indexed by file name
+      $wch{ $L[3] } = $L[0] . " " . $L[1] . " " . $L[2];
+    }
+  }
 
-    # delete all the empty files now, so they're not left in the results dir if user doesn't want to see them.
-	opendir(DIR, "$DATEDIR");
-	my @FILES = readdir(DIR);
-	foreach my $f (@FILES){ if (-z "$DATEDIR/$f") { unlink "$DATEDIR/$f"; } }
+  ## At this point have the info req to do the md5 filtering
+  ## mkdir 1 dir for each set of md5 results and name them for the 
+  ## wc summary, + #of nodes + suffix# if there are >1.
+  ## in main dir, symlink the names into the appro subdir as well.
+  
+  
+  # write analysis to disk in $DATEDIR
+  open OUT, ">$DATEDIR/Summary" or die "Can't open the summary file\n";
+  print OUT "Summary of contents for files in $DATEDIR\n";
+  print OUT
+    "Each line denotes MD5 identical output; wordcount shows similarity\n";
+  print OUT "Command: [$CMD]\n";
+  if ($QHOST) { print OUT "\n NOTE: MISSING NODES:\n$missing_nodes\n"; }
+  print OUT
+"========================================================================\n";
 
-   select(STDOUT);
-   if ($SCRIPT){ print "$DATEDIR"; exit 0; }
-   system("less -S $DATEDIR/Summary");
+  print OUT " line / word / chars | # |  hosts ->\n";
+  ## should prob also use this loop to gen the dirs & symlinks
+  # cuz we need a separate dir for each dif md5 value (may be the same 
+  # wc output)
+  foreach $key ( keys %md5h ) {
+    my $n = my @l = split( /\s+/, $md5h{$key} );
+    my $nmbr = sprintf("%03d", $n);
+    printf OUT "%20s  %3d  %s\n", 
+         $wch{ $l[0] }, $n, $md5h{$key};    
+         #    wc         #   host_list
+    # need to make a dirname like  #_#-#-#_#
+    # where                 #ofhosts_-wc- _suffix#
+    # could take the last 4 chars of the md5 hash string
+    my $suffix = substr $key, -4;
+    # so create the dirname string
+    my $dn = "$DATEDIR" . "/" . "$nmbr" . "_" . "$wch{$l[0]}" . "_" . "$suffix";
+    $dn =~ s/ /-/g;
+    mkdir $dn;
+    my $nn = my @ll = split / /, $md5h{$key};
+    for (my $i=0; $i<$nn; $i++) { 
+      my $dfn = $dn . "/" . $ll[$i]; 
+      my $tlfn = $DATEDIR . "/" . $ll[$i];
+      symlink "$tlfn","$dfn" ;
+    }
+  }
 
-# already checked for 'mc' in the APP test loop
-print "\nWould you like to view the results with 'mc'? [Yn]  ";
-	$tmp = <STDIN>;
-	if (($tmp !~ /[Nn]/) && (-x $XTERM)) {
-		print "\nin a new [x]term or via this [t]ext terminal? [Tx]?";
-		$tmp = <STDIN>;
-		if ($tmp =~ /[xX]/){ exec("cd $DATEDIR; $XTERM -e mc &"); }
-		else {system("cd $DATEDIR; mc;")}
-	} elsif ($tmp !~ /[Nn]/) {system("cd $DATEDIR; mc;")}
-	else {print "\nHave it your own way.  Bye!\n\n";}
+  # print the unresponsive nodes as well.
+  print OUT "\n\nUnresponsive Hosts\n";
+    foreach $key (keys %UNRESP) { print OUT "$key\n"; }
+  close OUT;
+
+# delete all the empty files now, so they're not left in the results dir if user doesn't want to see them.
+  opendir( DIR, "$DATEDIR" );
+  my @FILES = readdir(DIR);
+  foreach my $f (@FILES) {
+    if ( -z "$DATEDIR/$f" ) { unlink "$DATEDIR/$f"; }
+  }
+  select(STDOUT);
+  if ($SCRIPT) { print "$DATEDIR"; exit 0; }
+  system("less -S $DATEDIR/Summary");
+
+  # already checked for 'mc' in the APP test loop
+  print "\nWould you like to view the results with 'mc'? [Yn]  ";
+  $tmp = <STDIN>;
+  if ( ( $tmp !~ /[Nn]/ ) && ( -x $XTERM ) ) {
+    print "\nin a new [x]term or via this [t]ext terminal? [Tx]?";
+    $tmp = <STDIN>;
+    if   ( $tmp =~ /[xX]/ ) { exec("cd $DATEDIR; $XTERM -e mc &"); }
+    else                    { system("cd $DATEDIR; mc;") }
+  } elsif ( $tmp !~ /[Nn]/ ) {
+    system("cd $DATEDIR; mc;");
+  } else {
+    print "\nDrop you in the clusterfork results dir? [Yn]";
+    $tmp = <STDIN>;
+    if   ( $tmp !~ /[Nn]/ ) { system("cd $DATEDIR"); }
+    else { print "\nHave it your own way.  Bye!\n\n"; }
+  }
 }
 
 ##############################################################################
@@ -633,6 +824,7 @@ print "\nWould you like to view the results with 'mc'? [Yn]  ";
 ##############################################################################
 
 sub GenIPArray($) {
+
 # functionize this as GenIPArray(string)
 # where string is like ( 1.2.3.[11:25 34:56] 2.3.4.[134:167] 4.2.3.[197:233] )
 # and return @ARRAY 1 per el so it can go direct into @TARGET\
@@ -640,155 +832,207 @@ sub GenIPArray($) {
 # ie: if the input numbers have leading zeros, take the length of the input and
 # pad the output in the same way. ie: 0001:0089 or even 00001:89 will pad to 5 chars
 
-	my $ipstr = shift;
-	my ($localrange, $single, $DEBUG, $sz_lrng, $exp, @lrng, $e, $ttl_IPs, $n, @l, $u, $nn,
-	    @ll, @all, @iparr, @hnarr, $prefix, $suffix, $padlen );
-	# split multiple ranges ( 1.2.3.[11:25 34:56] ; 2.3.4.[134:167] ; 4.2.3.[197:233] )
-	$n = @l = split /\s*;\s*/, $ipstr; # must split on ';' for the /multiple/ ranges
-	# iterate thru each expansion  (1.2.3.[34:56] -> [1.2.3.34][ 1.2.3.35] .. [1.2.3.56]
+  my $ipstr = shift;
+  my (
+    $localrange, $single, $DEBUG,   $sz_lrng, $exp,
+    @lrng,       $e,      $ttl_IPs, $n,       @l,
+    $u,          $nn,     @ll,      @all,     @iparr,
+    @hnarr,      $prefix, $suffix,  $padlen
+  );
 
-	# now have to do checking on each type of range
-	foreach $subrange (@l) { # iter over ranges, can be different types as well (mixed IP, hostnames
-		$single = 0;
-		# if no [], then it's a single host/hostname, so append it
-		if ($subrange !~ /[\[\]]/) {push(@all, $subrange);$single=1;}
-		if ($ipstr =~ /[a-zA-Z]+/ && $single == 0) {
-			$ttl_IPs = 0; $suffix = $prefix = "";
-			$NPSbits = @PSbits = split /[\[\]]/, $subrange; # split on the range indicators
-			if ($NPSbits > 3) {die "ERROR: hostname spec has too many parts [$subrange]";}
-			my $prefix= $PSbits[0];
-			if ($NPSbits == 3) {$suffix = $PSbits[2];} # suffix optional
-			$exp = $PSbits[1];
-			my $ff = my @nn = split /:/,$exp;
-			if ($nn[0] =~ /^0+/){ # if the 1st number has leading zeros
-				$padlen = length($nn[0]); # record it for all the ranges
-				# and trim off the leading 0s before sending to column_ranges
-				# process a # like '00056'
- 				while ($nn[0] =~ /^0/) {$nn[0] = substr $nn[0],1;}
-			} else { # count the digits - some nodes will use up all the digits like 'a64-188'
-				$padlen = length($nn[0]); # record it for all the ranges
-			}
+# split multiple ranges ( 1.2.3.[11:25 34:56] ; 2.3.4.[134:167] ; 4.2.3.[197:233] )
+  $n = @l = split /\s*;\s*/,
+    $ipstr;    # must split on ';' for the /multiple/ ranges
+   # iterate thru each expansion  (1.2.3.[34:56] -> [1.2.3.34][ 1.2.3.35] .. [1.2.3.56]
 
-			$sz_lrng = @lrng = column_ranges($exp,0);
-			# this stanza has to address hostnames ranges like:
-			#   a64-[00076:00099 -88 -90].bduc
-			foreach $iter (@lrng){  # glue the bits together again
-				my $fexp = sprintf "%0*d", $padlen, $iter; # re-pad the number to the full length
-				$hnarr[$ttl_IPs] = $prefix . $fexp . $suffix;
-				$ttl_IPs++;
-			}
-			push(@all, @hnarr);
-		} elsif ($ipstr =~ /\d+\.\d+\.\d+\./ && $single==0) { # if IP #s,  ranges
-			$ttl_IPs = 0; $suffix = $prefix = "";
-			for ($u=0; $u<$n; $u++) {
-				$nn = @ll = split /\./, $l[$u];
-				if ($nn != 4) {die "ERROR: Input IP range <$l[$u]> isn't valid! (count = [$nn]\n";}
-				$localrange = $ll[0] . '.' . $ll[1] . '.' . $ll[2] . '.';
-				if ($ll[3] =~ /\[/ && $ll[3] =~ /\]/) {
-					$exp = substr $ll[3],1,-1; # trim the [ and ]
-					$sz_lrng = @lrng = column_ranges($exp,0);
-				} else {  # else it's a single number
-					$sz_lrng = 1; $lrng[0] = $ll[3];
-				}
-				# create the full IP #s in the hash
-				for ($e=0;$e<$sz_lrng;$e++) {
-					$iparr[$ttl_IPs] = $localrange . $lrng[$e];
-					$ttl_IPs++;
-				}
-				if ($DEBUG) {print STDERR "DEBUG:[$IPGRP]: [$e] elements, [$ttl_IPs] total IP #s\n";}
-			}
-			push(@all, @iparr);
-		} else { # what else could it be
-		}
-	}
-	return @all;
+  # now have to do checking on each type of range
+  foreach $subrange (@l)
+  {    # iter over ranges, can be different types as well (mixed IP, hostnames
+    $single = 0;
+
+    # if no [], then it's a single host/hostname, so append it
+    if ( $subrange !~ /[\[\]]/ ) { push( @all, $subrange ); $single = 1; }
+    if ( $ipstr =~ /[a-zA-Z]+/ && $single == 0 ) {
+      $ttl_IPs = 0;
+      $suffix  = $prefix = "";
+      $NPSbits = @PSbits = split /[\[\]]/,
+        $subrange;    # split on the range indicators
+      if ( $NPSbits > 3 ) {
+        die "ERROR: hostname spec has too many parts [$subrange]";
+      }
+      my $prefix = $PSbits[0];
+      if ( $NPSbits == 3 ) { $suffix = $PSbits[2]; }    # suffix optional
+      $exp = $PSbits[1];
+      my $ff = my @nn = split /:/, $exp;
+      if ( $nn[0] =~ /^0+/ ) {    # if the 1st number has leading zeros
+        $padlen = length( $nn[0] );    # record it for all the ranges
+             # and trim off the leading 0s before sending to column_ranges
+             # process a # like '00056'
+        while ( $nn[0] =~ /^0/ ) { $nn[0] = substr $nn[0], 1; }
+      } else { # count the digits - some nodes will use up all the digits like 'a64-188'
+        $padlen = length( $nn[0] );    # record it for all the ranges
+      }
+
+      $sz_lrng = @lrng = column_ranges( $exp, 0 );
+
+      # this stanza has to address hostnames ranges like:
+      #   a64-[00076:00099 -88 -90].bduc
+      foreach $iter (@lrng) {          # glue the bits together again
+        my $fexp = sprintf "%0*d", $padlen,
+          $iter;                       # re-pad the number to the full length
+        $hnarr[$ttl_IPs] = $prefix . $fexp . $suffix;
+        $ttl_IPs++;
+      }
+      push( @all, @hnarr );
+    } elsif ( $ipstr =~ /\d+\.\d+\.\d+\./ && $single == 0 )
+    {                                  # if IP #s,  ranges
+      $ttl_IPs = 0;
+      $suffix = $prefix = "";
+      for ( $u = 0 ; $u < $n ; $u++ ) {
+        $nn = @ll = split /\./, $l[$u];
+        if ( $nn != 4 ) {
+          die "ERROR: Input IP range <$l[$u]> isn't valid! (count = [$nn]\n";
+        }
+        $localrange = $ll[0] . '.' . $ll[1] . '.' . $ll[2] . '.';
+        if ( $ll[3] =~ /\[/ && $ll[3] =~ /\]/ ) {
+          $exp = substr $ll[3], 1, -1;    # trim the [ and ]
+          $sz_lrng = @lrng = column_ranges( $exp, 0 );
+        } else {                          # else it's a single number
+          $sz_lrng = 1;
+          $lrng[0] = $ll[3];
+        }
+
+        # create the full IP #s in the hash
+        for ( $e = 0 ; $e < $sz_lrng ; $e++ ) {
+          $iparr[$ttl_IPs] = $localrange . $lrng[$e];
+          $ttl_IPs++;
+        }
+        if ($DEBUG) {
+          print STDERR
+            "DEBUG:[$IPGRP]: [$e] elements, [$ttl_IPs] total IP #s\n";
+        }
+      }
+      push( @all, @iparr );
+    } else {    # what else could it be
+    }
+  }
+  return @all;
 }
 
 # timestr converts time spec like 3s 34m 7.5h to s.
-sub timestr ($){
-	my $tstr = shift;
-	my $sec = 0;
-	$tstr =~ s/,//g; # strip commas
-	if ($tstr =~ /\d+(s|S)/){  # only digits or seconds
-		chop $tstr; $sec = $tstr; return $sec;
-	} elsif ($tstr =~ /\d+(m|M)/) {
-		chop $tstr; $sec = $tstr * 60; return $sec;
-	} elsif ($tstr =~ /\d+(h|H)/){
-		chop $tstr; $sec = $tstr * 3600; return $sec;
-	} elsif ($tstr =~ /\d+/ && $tstr !~ /\D/) { $sec = $tstr;  return $sec;
-	} else {
-		die "\n\nERROR: The '--delay' or '--timeout' period can only be s, m, or h.  If you're trying to set up something to wait days between invocations, use cron.\n\n";
-	}
+sub timestr ($) {
+  my $tstr = shift;
+  my $sec  = 0;
+  $tstr =~ s/,//g;    # strip commas
+  if ( $tstr =~ /\d+(s|S)/ ) {    # only digits or seconds
+    chop $tstr;
+    $sec = $tstr;
+    return $sec;
+  } elsif ( $tstr =~ /\d+(m|M)/ ) {
+    chop $tstr;
+    $sec = $tstr * 60;
+    return $sec;
+  } elsif ( $tstr =~ /\d+(h|H)/ ) {
+    chop $tstr;
+    $sec = $tstr * 3600;
+    return $sec;
+  } elsif ( $tstr =~ /\d+/ && $tstr !~ /\D/ ) {
+    $sec = $tstr;
+    return $sec;
+  } else {
+    die
+"\n\nERROR: The '--delay' or '--timeout' period can only be s, m, or h.  If you're trying to set up something to wait days between invocations, use cron.\n\n";
+  }
+}
+
+# host_lookup takes either an alphanumeric hostname or an IP # and returns both
+sub host_lookup($) {
+  my $HOST     = shift;
+  my $IP_NMBR  = "";
+  my $HOSTNAME = "";
+  if ( $HOST =~ /[a-z]/ ) {   # then it's a hostname, so have to look up the IP#
+    my $packed_ip = gethostbyname($HOST);
+    if   ( defined $packed_ip ) { $IP_NMBR = inet_ntoa($packed_ip); }
+    else                        { $IP_NMBR = "IP UNDEFINED"; }
+
+    # following is Cox.net's default return for an unresolvable IP #.
+    if ( $IP_NMBR =~ "72.215.225.9" ) {
+      die "\nFATAL: Unresolvable Hostname [$HOST]\n\n";
+    }
+    $HOSTNAME = $HOST;
+  } else {                    # it's already an IP#, so look up the hostname
+    $HOSTNAME = gethostbyaddr( inet_aton($HOST), AF_INET )
+      or $HOSTNAME = "UNRESOLVED";
+
+    # die "Can't resolve $HOST: $!\n";
+    $IP_NMBR = $HOST;         # and copy for output.
+  }
+  return ( "$HOSTNAME", "$IP_NMBR" );
 }
 
 #
-# call as host_loop($HOST, $CMD, $DATEDIR, $$CMD, $PIDFILE)
-sub host_loop($$$$$) {
+# call as host_loop($HOST, $CMD, $DATEDIR, $CMD, $PIDFILE, $UNRESP )
+sub host_loop( $$$$$$ ) {
 
-	$HOST = shift;
-	$CMD = shift;
-	$DATEDIR = shift;
-	$FORK = shift;
-	my $IP_NMBR = "";
-	my $HOSTNAME = "";
-	if ($HOST =~ /[a-z]/) { # then it's a hostname, so have to look up the IP#
-	    my $packed_ip = gethostbyname($HOST);
-	    if (defined $packed_ip) { $IP_NMBR = inet_ntoa($packed_ip); }
-	    else {$IP_NMBR = "IP UNDEFINED";}
-	    # following is Cox.net's default return for an unresolvable IP #.
-	    if ($IP_NMBR =~ "72.215.225.9") {die "\nFATAL: Unresolvable Hostname [$HOST]\n\n";}
-	    $HOSTNAME = $HOST;
-    } else { # it's already an IP#, so look up the hostname
-	    $HOSTNAME = gethostbyaddr(inet_aton($HOST), AF_INET)
-	       or die "Can't resolve $HOST: $!\n";
-	    $IP_NMBR = $HOST; # and copy for output.
-	}
+  $HOST    = shift;
+  $CMD     = shift;
+  $DATEDIR = shift;
+  $FORK    = shift;
+  my $IP_NMBR  = "";
+  my $HOSTNAME = "";
+  ( $HOSTNAME, $IP_NMBR ) = &host_lookup($HOST);
+  print "Host: $HOSTNAME [$IP_NMBR]: \n";
+  my $PING_RESPONSE = `ping -c1 $HOST`;
 
-	print "Host: $HOSTNAME [$IP_NMBR]: \n";
-	my $PING_RESPONSE = `ping -c1 $HOST`;
-	if ( $PING_RESPONSE =~ /100% packet loss/ || $PING_RESPONSE =~ /unknown/) {
-		print "                              .... unresponsive or host not found..\n";
-	} elsif ($FORK eq "FORK") {
-	     if ( -d $DATEDIR ){
-			# system-exec the command, with stdout going to the file in the
-			# $DATEDIR and the PID going to the $PIDFILE (in $DATEDIR)
-			# v 1.61 - added the '&' to redirect STDERR
-			# write the $PIDFILE like PID:HOST
-			system("ssh $HOST '$CMD' &> $DATEDIR/$HOST & echo \"\${!}\:${HOST}\" >> $PIDFILE ");
-			if ($DELAY != 0) {print "\t(delaying \'$DELAY_STR\' before next command.)\n";}
-			sleep $DELAY;
-	     } else { die "ERROR: Dir $DATEDIR doesn't exist.\n"; }
-	 } else {
-		system("ssh $HOST $CMD"); # this should dump the command output to STDOUT.
-	 }
+  if ( $PING_RESPONSE =~ /100% packet loss/ || $PING_RESPONSE =~ /unknown/ ) {
+    print "                              .... unresponsive or host not found..\n";
+    $UNRESP{$HOST} = 0;
+  } elsif ( $FORK eq "FORK" ) {
+    if ( -d $DATEDIR ) {
+
+      # system-exec the command, with stdout going to the file in the
+      # $DATEDIR and the PID going to the $PIDFILE (in $DATEDIR)
+      # v 1.61 - added the '&' to redirect STDERR
+      # write the $PIDFILE like PID:HOST
+      system("ssh $HOST '$CMD' 2>&1 | egrep -v \"$FILTER\" > $DATEDIR/$HOST & echo \"\${!}\:${HOST}\" >> $PIDFILE " );
+      if ( $DELAY != 0 ) {
+        print "\t(delaying \'$DELAY_STR\' before next command.)\n";
+      }
+      sleep $DELAY;
+    } else {
+      die "ERROR: Dir $DATEDIR doesn't exist.\n";
+    }
+  } else {
+    system("ssh $HOST $CMD");   # this should dump the command output to STDOUT.
+  }
 }
 
 sub pause {
-   print "\tWaiting for [Enter]\n";
-   $tmp = <STDIN>;
+  print "\tWaiting for [Enter]\n";
+  $tmp = <STDIN>;
 }
 
 # call as [debug(__LINE__, "string")] to print line # and debug string
 sub debug($$) {
-	my $line = shift;
-	my $msg = shift;
-	print STDERR "DEBUG[$line]: $msg\n";
-	pause;
+  my $line = shift;
+  my $msg  = shift;
+  print STDERR "DEBUG[$line]: $msg\n";
+  pause;
 }
 
-
 sub usage {
-   my $helpfile="$HOME/clustexec_help.tmp";
-   my $helptxt = "";
-   open HLP, ">$helpfile" or die "Can't open the summary file\n";
-   $helptxt = <<HELP;
+  my $helpfile = "$HOME/clustexec_help.tmp";
+  my $helptxt  = "";
+  open HLP, ">$helpfile" or die "Can't open the summary file\n";
+  $helptxt = <<HELP;
 
 SUMMARY
 =======
+(see also: http://moo.nac.uci.edu/~hjm/clusterfork)
 clusterfork automates the remote execution of commands to sets of nodes
 (typically in a cluster).  Depending on the 'fork' option, it will execute
 the commands serially or in parallel.  If the former, the output of each node
-will be echoed to STDOUT.  When invoked with the --fork (or no fork option),
+will be echoed to STDOUT.  When invoked with --fork (default, so not needed),
 it will operate in parallel and pipe the output of the commands into a new,
 dated dir, each file labeled with the IP# of the node on which it has
 executed, along with a Summary file that contains the original command and
@@ -798,12 +1042,18 @@ The non-empty files can then be viewed via 'Midnight Commander' (mc),
 in a new xterm or the same text terminal.  (The empty results files are
 deleted before you view the results in mc; but are noted in the Summary file.)
 
+The results are also symlinked into corresponding dirs named like this:
+'029_1-6-29_1ce3' where the '029' refers to the # of the respondents that 
+have the identical output, the '1-6-29' refers to the wc output (1 line, 6 
+words, 29 chars), and the '1ce3' is simply the last 4 chars of the actual 
+md5 checksum to provide an differential suffix.
+
 COMMAND-LINE OPTIONS in detail
 ==============================
 
 Usage:  {sudo} clusterfork {options} 'remote command'
-   where 'remote command' is the command to be sent to the remote nodes
-   and {options} are:
+   where 'remote command' is the command to be sent to the remote nodes.
+   (be careful about embedded quoting) and {options} are:
 
       --help / -h............. dump usage, tips
 
@@ -814,27 +1064,38 @@ Usage:  {sudo} clusterfork {options} 'remote command'
           to ~/.clusterforkrc and exit.  You must edit the template to
           provide parameters for your particular setup.
 
-     --target=[quoted IP_Range or predefined GROUP name]
-          where IP_Range -> 12.23.23.[27:45 -33 54:88]
-            or  'a64-[00023:35 -25:-28].bduc'
+     --target=[quoted IP_Range or predefined GROUP name] ie:
+          --target='2.23.23.[27:45 -33 54:88]'
+	  or  --target='a64-[00023:35 -25:-28].bduc'
           (Note that leading zeros in the FIRST range specifier will be
           replicated in the output; the above pattern will generate:
-            a64-00023.bduc, a64-00024.bduc, a64-00029.bduc, etc)
+	  a64-00023.bduc, a64-00024.bduc, a64-00029.bduc, etc)
 
-          where GROUP    -> 'ICS_2X,ADC_4X,CLAWS' (from config file)
-          (see docs for longer exposition on IP_Ranges and GROUP definition)
+          GROUP   -> 'ICS_2X,ADC_4X,CLAWS' (from config file)
+          (see --help output for longer exposition on IP_Ranges and GROUP definition)
+          or the page at <http://moo.nac.uci.edu/~hjm/clusterfork>
 
-      --hosts=[quoted space-delimited hostnames]
+      --hosts=[quoted space-delimited hostnames] ie:
+	  ie: --hosts='a64-111  a64-142  a64-183  a64-972'
           For those times when you have a random number of hostnames to send.
-          ie: --hosts='a64-111  a64-142  a64-183  a64-972'.  This will process
-          them in the same way as '--target' above, but without having to spec
+          This will process them in the same way as '--target' above, but without having to spec
           the ranges.
+
+      --skip=[quoted ';'-delimited hostnames].  ie:
+          --skip='grumpy; 12.34.56.4 ; 34.56.22.[27:45 -33 54:88]'
+          Often you'll use a member of a group to test a process and when
+          the test is complete, that member no longer has to be processed.
+          This option allows you to skip such member(s).  Format can be
+          mixed hostnames, IP #s, and ranges, separated by ';'  ie:
+          'grumpy; 12.34.56.4 ; 34.56.22.[27:45 -33 54:88]'
+          but is generally a single hostname:  --skip=pbs1
 
       --delay=#  (or #s, #m, #h)
           introduces a this many (s)econds, (m)inutes, or (h)ours between successive
           commands to nodes to prevent overutilization of resources.  ie between
           initiating a 'yum -y upgrade' to prevent all the nodes from hitting a
-          local repository simultaneously.  If no s|m|h is given, seconds are assumed. Fractions (0.01h) are fine.
+          local repository simultaneously.  If no s|m|h is given, seconds are assumed.
+          Fractions (0.01h) are fine.
 
       --listgroup=[GROUP,GROUP..] (GROUPs from config file)
           If no GROUP specified, dumps IP #s for ALL GROUPS.
@@ -851,13 +1112,15 @@ Usage:  {sudo} clusterfork {options} 'remote command'
           If you use the --fork command (as above)), instead of producing the
           stdout/err immediately, a new subdir will be created with the name
           of the format:
-             REMOTE_CMD-(20 chars of the command)-time_date
+             CF-(20 chars of the command)-time_date
           and the output for each node will be directed into a separate file
           named for the IP number or hostname (whichever the input spec was).
 
       --script runs the command as a script with all the normal screen output
           sent to the LOG file in the output directory, along with all the normal
-          output.  Verify that the command works before you run it with --script.
+          output.  Returns the fully qualified path to the output dir.
+          ie: RESULTS=`cf --script --tar=GROUPNAME '/path/to/command'`
+          Verify that the command works before you run it with --script.
 
       --timeout #  (or #s, #m, #h)
           sets the timout period, especially when using --script so that
@@ -881,7 +1144,7 @@ Usage:  {sudo} clusterfork {options} 'remote command'
 
 AUTHOR
 ------
-Harry Mangalam <hjm\@tacgi.com>, <harry.mangalam\@uci.edu>
+Harry Mangalam <hjm\@tacgi.com>, <harry.mangalam\@uci.edu>,
 Copyright (c) 2009-2012 UC Irvine
 
 This software and documentation is released under
@@ -892,154 +1155,194 @@ the FSF Affero General Public License (GPL) version 3.
 
 HELP
 
-print HLP $helptxt;
-close HLP;
-
-system("less -S $helpfile");
-unlink $helpfile;
-die "Did that help?.\n"
+  print HLP $helptxt;
+  close HLP;
+  system("less -S $helpfile");
+  unlink $helpfile;
+  die "Did that help?.\n";
 }
 
 sub trim($) {
-    my $string = shift;
-    $string =~ s/^\s+//;
-    $string =~ s/\s+$//;
-    return $string;
+  my $string = shift;
+  $string =~ s/^\s+//;
+  $string =~ s/\s+$//;
+  return $string;
 }
 
-
 sub column_ranges($$) {
-    # this sub takes in a column specifier string of the format:
-    # '13 2 6 4 8 8 3' (all +#s -> print these cols in this order (duplicates allowed)
-    # '3:7 9 11:19 -14:-17 22:23' mixed +, - ranges.  generates an output of:
-    # [3 4 5 6 7 9 11 12 13 18 19 22 23] (the - ranges negate the +ranges specified)
-    # 'ALL -3 -7:-13' prints all columns in order EXCEPT 3 7 8 9 10 11 12 13
-    # note that this routine handles col indices in L->R order and mantains that order.
-    # sub column_ranges(@col_str) { ... return @order } # @order is int array that contains order of rationalized cols
-    # this sub should be callable to mask the @pos with the @neg and return the result (result could be placed
-    # in the @pos to be returned.. This should be callable for any set of inputs.
-    # so optimally, the original column selection string is sent in and the equalized string is emitted (or an array of ints
-    # that has all the columns in the proper order.
 
+# this sub takes in a column specifier string of the format:
+# '13 2 6 4 8 8 3' (all +#s -> print these cols in this order (duplicates allowed)
+# '3:7 9 11:19 -14:-17 22:23' mixed +, - ranges.  generates an output of:
+# [3 4 5 6 7 9 11 12 13 18 19 22 23] (the - ranges negate the +ranges specified)
+# 'ALL -3 -7:-13' prints all columns in order EXCEPT 3 7 8 9 10 11 12 13
+# note that this routine handles col indices in L->R order and maintains that order.
+# sub column_ranges(@col_str) { ... return @order } # @order is int array that contains order of rationalized cols
+# this sub should be callable to mask the @pos with the @neg and return the result (result could be placed
+# in the @pos to be returned.. This should be callable for any set of inputs.
+# so optimally, the original column selection string is sent in and the equalized string is emitted (or an array of ints
+# that has all the columns in the proper order.
 
-    # $Nc1i = @c1i = column_ranges($ics); #example of call - string goes in, array comes out.
+# $Nc1i = @c1i = column_ranges($ics); #example of call - string goes in, array comes out.
 
-    my $ics = shift;
-    my $DEBUG = shift;
-    my (@cols_neg, @cols_pos, $cn, $cp, @final, $nbits, @cbits, $nn, @ll);
-	$cn = $cp = 0;
+  my $ics   = shift;
+  my $DEBUG = shift;
+  my ( @cols_neg, @cols_pos, $cn, $cp, @final, $nbits, @cbits, $nn, @ll );
+  $cn = $cp = 0;
 
-    if (($ics=~ /-/) && ($ics !~ /\d:\d/) && ($ics !~ /ALL/i ) && ($ics !~ / \d/)) {
-        # then it's negatives only in ranges or singles, so ADD the implied ALL
-        $ics = "ALL " . $ics;
-        if ($DEBUG) {print  STDERR "added ALL to all-negative run\n"; }
+  if ( ( $ics =~ /-/ )
+    && ( $ics !~ /\d:\d/ )
+    && ( $ics !~ /ALL/i )
+    && ( $ics !~ / \d/ ) )
+  {
+
+    # then it's negatives only in ranges or singles, so ADD the implied ALL
+    $ics = "ALL " . $ics;
+    if ($DEBUG) { print STDERR "added ALL to all-negative run\n"; }
+  }
+  if ( ( $ics =~ /:/ || $ics =~ /-/ ) && ( $ics !~ /ALL/i ) )
+  {    # make sure that if the var = 'ALL' it stays 'ALL'
+
+    if ($DEBUG) { print STDERR "\$ics: range or negative, but NO ALL\n"; }
+
+    # so it could be -c1='-3:-40'
+    $ics   = trim($ics);                      # trim both ends of whitespace
+                                              # break it into bits on spaces
+    $nbits = @cbits = split( /\s+/, $ics );
+    for ( my $e = 0 ; $e < $nbits ; $e++ ) {
+
+      #print STDERR "cbits[$e] = $cbits[$e]\n";
+      if ( $cbits[$e] =~ /\d:[-\d]/ )
+      {    # 23:45 or -34:-23  but not '12:' or ':67'
+        $nn = @ll = split( /:/, $cbits[$e] );    # splits b:e to [b] [e]
+
+        if ( $ll[0] < 0 && $ll[1] > 0 || $ll[0] > 0 && $ll[1] < 0 ) {
+          die
+"A column range crosses 0: [$ll[0] to $ll[1] - This is nonsense!  Try again\n";
+        }
+
+        if ( $ll[0] > $ll[1] ) {                 # -20:-22
+          for ( my $i = $ll[0] ; $i >= $ll[1] ; $i-- ) {    # note $i decrements
+            if ( $i >= 0 ) {
+              $cols_pos[ $cp++ ] = $i;
+            }    #print "+"; # put positive #s in pos array
+            else {
+
+              #print STDERR "cols_neg[$cn]=$i\n";
+              $cols_neg[ $cn++ ] = $i;
+            }    #print "-";      # and negative #s in neg array
+          }
+        } else {    # b < e (usual case)
+
+          #					print STDERR "DEBUG: colranges[810] $ll[0] $ll[1]\n";
+          #					&pause();
+          for ( $i = $ll[0] ; $i <= $ll[1] ; $i++ ) {    # note $i increments
+            if ( $i >= 0 ) {
+              $cols_pos[ $cp++ ] = $i;
+            }    # print "+"; # put positive #s in pos array
+            else {
+              $cols_neg[ $cn++ ] = $i;
+            }    #print "-";      # and negative #s in neg array
+          }
+        }
+      } else {    # it will be a single number like 2 or 45 or -45
+        if ( $cbits[$e] >= 0 ) {
+          $cols_pos[ $cp++ ] = $cbits[$e];
+        }         # put positive #s in pos array
+        else {    # and negative #s in neg array
+          $cols_neg[ $cn++ ] = $cbits[$e];
+        }
+      }
     }
-    if (($ics =~ /:/ || $ics =~ /-/) && ($ics !~ /ALL/i )) { # make sure that if the var = 'ALL' it stays 'ALL'
 
-        if ($DEBUG) {print STDERR  "\$ics: range or negative, but NO ALL\n"; }
-        # so it could be -c1='-3:-40'
-        $ics = trim($ics); # trim both ends of whitespace
-        # break it into bits on spaces
-        $nbits = @cbits = split(/\s+/,$ics);
-        for (my $e=0; $e<$nbits; $e++) {
-            #print STDERR "cbits[$e] = $cbits[$e]\n";
-            if ($cbits[$e] =~ /\d:[-\d]/) {  # 23:45 or -34:-23  but not '12:' or ':67'
-                $nn = @ll = split(/:/,$cbits[$e]); # splits b:e to [b] [e]
+# now all components are in the @cols_etc array, so now need to delete
+# those that have negative  references ie can have a range of
+#   --c1='11:19 -14 -25 24:26  46'
+# and the '-14 would negate the '14' implied by '11:22'.
+# so in above case the pos array would be:
+# [11 12 13 14 15 16 17 18 19 24 25 26 46]
+# and the neg array would be
+# [-14 -25]
+# and the negs should erase the pos's so the ending array in the pos array would be:
+# [11 12 13 -1  15 16 17 18 19 24  -1  26 46] (use  -1 in the cols_pos to indicate a skip
+# if $cols_pos[] < 0, don't print it. if it's +, print it in that order.
 
-                if ($ll[0]<0 && $ll[1]>0 ||$ll[0]>0 && $ll[1]<0 ) {die "A column range crosses 0: [$ll[0] to $ll[1] - This is nonsense!  Try again\n";}
-
-                if ($ll[0] > $ll[1]) { # -20:-22
-                    for (my $i=$ll[0]; $i>=$ll[1]; $i--) { # note $i decrements
-                        if ($i>=0) {$cols_pos[$cp++] = $i; } #print "+"; # put positive #s in pos array
-                        else {
-                        	#print STDERR "cols_neg[$cn]=$i\n";
-                        	$cols_neg[$cn++] = $i;
-                       	} #print "-";      # and negative #s in neg array
-                    }
-                } else { # b < e (usual case)
-#					print STDERR "DEBUG: colranges[810] $ll[0] $ll[1]\n";
-#					&pause();
-                    for ($i=$ll[0]; $i<=$ll[1]; $i++) { # note $i increments
-                        if ($i>=0) {$cols_pos[$cp++] = $i;} # print "+"; # put positive #s in pos array
-                        else {$cols_neg[$cn++] = $i; } #print "-";      # and negative #s in neg array
-                    }
-                }
-            } else { # it will be a single number like 2 or 45 or -45
-                if ($cbits[$e]>=0) {$cols_pos[$cp++] = $cbits[$e]; } # put positive #s in pos array
-                else {  # and negative #s in neg array
-                	$cols_neg[$cn++] = $cbits[$e];
-                }
-            }
+    foreach my $neg (@cols_neg) {
+      for ( my $pos = 0 ; $pos <= $#cols_pos ; $pos++ ) {
+        if ( abs($neg) == $cols_pos[$pos] ) {
+          $cols_pos[$pos] = -1;
         }
-        # now all components are in the @cols_etc array, so now need to delete
-        # those that have negative  references ie can have a range of
-        #   --c1='11:19 -14 -25 24:26  46'
-        # and the '-14 would negate the '14' implied by '11:22'.
-        # so in above case the pos array would be:
-        # [11 12 13 14 15 16 17 18 19 24 25 26 46]
-        # and the neg array would be
-        # [-14 -25]
-        # and the negs should erase the pos's so the ending array in the pos array would be:
-        # [11 12 13 -1  15 16 17 18 19 24  -1  26 46] (use  -1 in the cols_pos to indicate a skip
-        # if $cols_pos[] < 0, don't print it. if it's +, print it in that order.
+      }
+    }
 
-        foreach my $neg (@cols_neg) {
-	    for (my $pos=0; $pos<=$#cols_pos; $pos++) {
-		    if (abs($neg) == $cols_pos[$pos]) {
-		    $cols_pos[$pos] = -1;
-		}
-            }
-        }
-        # @ loop end, all the matches are replaced with -1s; now copy them to @tmp, skipping the -1s
-        my @tmp;
-        my $tc = 0;
-		for (my $i=0; $i<=$#cols_pos; $i++) {
-		    while ($i <= $#cols_pos && $cols_pos[$i] == -1) {$i++;}
-			if ($i <= $#cols_pos) {
-			    $tmp[$tc] = $cols_pos[$i];
-			    $tc++;
-			}
-		}
-        return @tmp;
-    } elsif ($ics =~ /ALL/i) { # ALL makes sense only if you ask for ALL alone or with a
+# @ loop end, all the matches are replaced with -1s; now copy them to @tmp, skipping the -1s
+    my @tmp;
+    my $tc = 0;
+    for ( my $i = 0 ; $i <= $#cols_pos ; $i++ ) {
+      while ( $i <= $#cols_pos && $cols_pos[$i] == -1 ) { $i++; }
+      if ( $i <= $#cols_pos ) {
+        $tmp[$tc] = $cols_pos[$i];
+        $tc++;
+      }
+    }
+    return @tmp;
+  } elsif ( $ics =~ /ALL/i )
+  {    # ALL makes sense only if you ask for ALL alone or with a
         # set of (-)s (so warn if detect a positive in there as well
-        # so break it into bits and extract the (-)s. this will result in an array of negatives
-        # that will have to be checked as we print out the cols.
-        # means that we'll have to have 2 modes:
-        #   print_pos (print ONLY the columns noted) if (defined $col[$i]) {print col_pos[$i
-        #   print_neg (print ALL the columns EXCEPT the columns noted)
-        #   and then 'ALL' alone signifies to print all columns.
-        $ics = trim($ics);
-        if ($ics eq "ALL" || $ics eq "all"){ # should test before entry also
-#            $final[0] = "ALL"; $final[1] = "STOP";
-            $final[0] = "ALL";
-            return @final;
-        }
-        $nbits = @cbits = split(/\s+/,$ics);
-        for ($e=0; $e<$nbits; $e++) {
-            # one of the bits is ALL cuz that's how we got here. we want to fill in the rest of the (-)s
-            if ($DEBUG) {print  STDERR "CBITS = $cbits[$e] \n";}
-            if ($DEBUG) {pause(__LINE__);} # $cbits[$e]
-            if ( $cbits[$e] =~ /-\d/) { # look for a -#
-                if ($cbits[$e] =~ /:/){ # a range
-                    $nn = @ll = split(/:/,$cbits[$e]);
-                    if ($ll[0]>0 || $ll[1]>0) {
-                        die "One of the ranges has a +# in it which doesn't make sense if you specify 'ALL' as well\n";
-                    }
-                    if ($ll[0] > $ll[1]) {my $tmp = $ll[0]; $ll[0]= $ll[1]; $ll[1]=$tmp;}  # b > e  -4:-6; flip em
-                    for ($i=$ll[0]; $i<=$ll[1]; $i++) { # note $i decrements
-                        if ($i>0) {die "Don't want a (+) number with ALL; only (-)s\n";} # emit error
-                        else {$cols_neg[$cn++] = $i;}      # put negative #s in neg array
-                    }
-                } else { $cols_neg[$cn++] = $cbits[$e];}  # it's a single so just paste the # in as a neg
-            } elsif ($cbits[$e] !~ /ALL/i && int($cbits[$e]) > -1) {
-                die "One of #s you specified [$cbits[$e]] is + which doesn't make sense if you specify 'ALL' as well\n";
-            }
-        }
-        # return @cols_neg (all (-)s) and when test for 'ALL' when printing, also test for (-)s in the @arr.
-        if ($DEBUG) {print  STDERR "about to return \@col_neg\n"; pause(__LINE__);}
-        return @cols_neg;
-    } elsif ($ics =~ /\d/ && $ics !~ /-/) { @final = split(/\s+/, $ics); return @final;} #  should be only #s like '2 5 3 7 6'
-    else {die "There's something wrong with the column specification [$ics]\n";}
+     # so break it into bits and extract the (-)s. this will result in an array of negatives
+     # that will have to be checked as we print out the cols.
+     # means that we'll have to have 2 modes:
+     #   print_pos (print ONLY the columns noted) if (defined $col[$i]) {print col_pos[$i
+     #   print_neg (print ALL the columns EXCEPT the columns noted)
+     #   and then 'ALL' alone signifies to print all columns.
+    $ics = trim($ics);
+
+    if ( $ics eq "ALL" || $ics eq "all" ) {    # should test before entry also
+
+      #            $final[0] = "ALL"; $final[1] = "STOP";
+      $final[0] = "ALL";
+      return @final;
+    }
+    $nbits = @cbits = split( /\s+/, $ics );
+    for ( $e = 0 ; $e < $nbits ; $e++ ) {
+
+# one of the bits is ALL cuz that's how we got here. we want to fill in the rest of the (-)s
+      if ($DEBUG) { print STDERR "CBITS = $cbits[$e] \n"; }
+      if ($DEBUG) { pause(__LINE__); }                        # $cbits[$e]
+      if ( $cbits[$e] =~ /-\d/ ) {                            # look for a -#
+        if ( $cbits[$e] =~ /:/ ) {                            # a range
+          $nn = @ll = split( /:/, $cbits[$e] );
+          if ( $ll[0] > 0 || $ll[1] > 0 ) {
+            die
+"One of the ranges has a +# in it which doesn't make sense if you specify 'ALL' as well\n";
+          }
+          if ( $ll[0] > $ll[1] ) {
+            my $tmp = $ll[0];
+            $ll[0] = $ll[1];
+            $ll[1] = $tmp;
+          }    # b > e  -4:-6; flip em
+          for ( $i = $ll[0] ; $i <= $ll[1] ; $i++ ) {    # note $i decrements
+            if ( $i > 0 ) {
+              die "Don't want a (+) number with ALL; only (-)s\n";
+            }                                            # emit error
+            else { $cols_neg[ $cn++ ] = $i; }    # put negative #s in neg array
+          }
+        } else {
+          $cols_neg[ $cn++ ] = $cbits[$e];
+        }    # it's a single so just paste the # in as a neg
+      } elsif ( $cbits[$e] !~ /ALL/i && int( $cbits[$e] ) > -1 ) {
+        die
+"One of #s you specified [$cbits[$e]] is + which doesn't make sense if you specify 'ALL' as well\n";
+      }
+    }
+
+# return @cols_neg (all (-)s) and when test for 'ALL' when printing, also test for (-)s in the @arr.
+    if ($DEBUG) { print STDERR "about to return \@col_neg\n"; pause(__LINE__); }
+    return @cols_neg;
+  } elsif ( $ics =~ /\d/ && $ics !~ /-/ ) {
+    @final = split( /\s+/, $ics );
+    return @final;
+  }    #  should be only #s like '2 5 3 7 6'
+  else { die "There's something wrong with the column specification [$ics]\n"; }
 }
 

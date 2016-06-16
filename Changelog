@@ -1,5 +1,34 @@
-Clusterfor Changelog
+Clusterfork Changelog
 
-10.27.2015
-- brought clusterfork 1.74 up to 1.80 in one big jump in updating the git
-  repo from a number of changes.  Will try to work out of here fromnow on.
+# 1.82 - (06-16-16) log unresponsive nodes to Summary file.
+# 1.81 - (04-19-16) add md5 checksum filtering of output files 
+         into identical-content  dirs and symlink the output file 
+         names to the correct ones.
+# 1.80 - (2-10-14) added filters to strip annoying spurious errors 
+         from out put, especially 
+         "Warning: No xauth data; using fake authentication data for X11
+         forwarding."  Include the filter string as part of the config 
+         file, not the code.
+# 1.79 - (11-08-13) added '--skip' so can skip processing of a node that 
+         has been used as a guinea pig and now no longer needs to be processed
+         fixed IGNORE group handling so that can use either IP# or hostname
+         fixed some doc errors
+# 1.78 - (09-12-13) should only show scrolling changes once the list has
+         changed from 1st list.  so if there are 22 hosts in list, the scroll 
+         shouldn't start until the list drops to 21
+# 1.77 - (06-14-2013) cosmetic changes; narrow output, short-circuit 
+         last 2s wait, rename output dir from 'REMOTE-CMD' to CF'.
+# 1.76 - (05.1.13) FIXED: complains about IP#-based host specs, so have to
+         make sure it can take specs like 10.3.22.[4:45] without barfing.
+         FIXED: handles unresolved IP#s better - times out in 1s waiting 
+         for ping & continues
+         FIXED: characters like < & > fail
+         FIXED: # hosts left stays at 0 instead of tracking the # correctly.
+# 1.75 - (11.29.12) add final timing line to LOG so can grep for it more
+         easily. 
+# 1.74 - (10.15.12) shortcut final pointless 2s cycle at end
+# 1.73 - (10.04.12) set a timeout for --script version to prevent infinite
+         hanging.
+# 1.72 - (08.20.12) small mod to delete empty files before asking to view
+         them.
+

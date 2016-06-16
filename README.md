@@ -1,9 +1,7 @@
 clusterfork: a cluster admin tool
 =================================
 by Harry Mangalam <harry.mangalam@uci.edu>
-v1.72, August 20th, 2012
-:icons:
-
+v1.82, June 16, 2016
 
 'clusterfork' (aka 'cf') is a commandline perl script for issuing the same
 command to many computers simultaneously via ssh, collating the results of
@@ -14,9 +12,7 @@ as used interactively, logging the usual output.
 For example, the following line will show you the correctable and
 uncorrectable memory errors on the nodes 10.255.78.20 thru 10.255.78.60. 
 Change the IP range to your own and try it yourself.  Obviously, the
-machines have to be using the
-
-http://buttersideup.com/edacwiki/Main_Page [EDAC system].
+machines have to be using the http://buttersideup.com/edacwiki/Main_Page [EDAC system].
 
 clusterfork --target=10.255.78.[20:60] 'cd /sys/devices/system/edac/mc \
 &&  grep [0-9]* mc*/csrow*/[cu]e_count'
