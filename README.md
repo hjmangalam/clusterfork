@@ -1,7 +1,7 @@
 clusterfork: a cluster admin tool
 =================================
 by Harry Mangalam <harry.mangalam@uci.edu>
-v1.82, June 16, 2016
+v1.86, Sept 10, 2017
 
 'clusterfork' (aka 'cf') is a commandline perl script for issuing the same
 command to many computers simultaneously via ssh, collating the results of
@@ -17,7 +17,8 @@ machines have to be using the http://buttersideup.com/edacwiki/Main_Page [EDAC s
 clusterfork --target=10.255.78.[20:60] 'cd /sys/devices/system/edac/mc \
 &&  grep [0-9]* mc*/csrow*/[cu]e_count'
 
-If this git repo doesn't give you what you want, 
-http://moo.nac.uci.edu/~hjm/clusterfork/clusterfork.html [try the original]
+Read more at the http://moo.nac.uci.edu/~hjm/clusterfork/clusterfork.html[original] 
+(and still operational):
+
 
  

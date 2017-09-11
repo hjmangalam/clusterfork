@@ -1,5 +1,25 @@
 Clusterfork Changelog
 
+# 1.86  (09-10-17 Fixed sometimes odd behavior with --refresh, .clusterfork-ignore
+        so that --refresh now deletes and then refreshes .clusterfork-ignore, so that
+        ONLY freshly ignorable hosts are exist in the .clusterfork-ignore file.
+        If don't use --refresh, then after the $REFRESHPERIOD (now 4hrs), it gets 
+        regenerated anyway.
+# 1.84  (06-19-16) FIXED: doesn't seem to be ignoring the IGNORE line.
+        (11.5.16) DONE: place unresponsive nodes into the IGNORE section or file
+        DONE: refresh that on file and  --refresh or every X hrs (set in rc file).
+        TODO: put the current --list output into the less pager
+        DONE: only output 'Unresponsive hosts if there are some
+# 1.83   (06-19-16) FIXED: doesn't seem to be ignoring the IGNORE line.
+        (11.5.16) DONE: place unresponsive nodes into the IGNORE section or file
+        TODO: refresh that on file and  --refresh or every X hrs (set in rc file).
+        TODO: put the current --list output into the less pager
+        DONE: only output 'Unresponsive hosts if there are some
+        DONE: also, sep the unresponsive nodes to paste into the .clusterforkrc IGNORE line.
+        DONE: put the 'unresponsive error messages on the same line as the node if possible
+        DONE: (put the newline before the line is printed, instead of after.)
+ 1.82 - (06-16-16) log unresponsive nodes to Summary file.
+
 # 1.82 - (06-16-16) log unresponsive nodes to Summary file.
 # 1.81 - (04-19-16) add md5 checksum filtering of output files 
          into identical-content  dirs and symlink the output file 

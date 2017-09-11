@@ -1,6 +1,6 @@
 #!/usr/bin/env perl 
 # my $| =1; # uncomment to force flushing
-# Perldocs removed in favor of the help stanza below at ~ line 1088
+# Perldocs removed in favor of the help stanza below at ~ line 634
 # search for 'sub usage'
 
 # don't forget!!  using git!
@@ -9,20 +9,27 @@
 # git push                          # pushes the commit to github
 
 # after significant changes, update the tarball and cp to moo for distribution; update the github
-# cd ;  scp ~bin/clusterfork  moo:~/public_html/clusterfork; ssh moo 'scp ~/public_html/clusterfork hmangala@hpcs:~/bin/clusterfork'; 
+# cd ;  scp ~bin/clusterfork  moo:~/public_html/clusterfork; ssh moo 'scp ~/public_html/clusterfork hmangala@hpcs:~/bin
 # cd ~/gits/clusterfork; cp ~/bin/clusterfork .; git add clusterfork; git commit -m 'commit message'; git push
 
-
-
+# 1.86   (09-10-17 Fixed sometimes odd behavior with --refresh, .clusterfork-ignore
+#        so that --refresh now deletes and then refreshes .clusterfork-ignore, so that
+#        ONLY freshly ignorable hosts are exist in the .clusterfork-ignore file.
+#        If don't use --refresh, then after the $REFRESHPERIOD (now 4hrs), it gets 
+#        regenerated anyway.
 # 1.84   (06-19-16) FIXED: doesn't seem to be ignoring the IGNORE line.
 #        (11.5.16) DONE: place unresponsive nodes into the IGNORE section or file
 #           DONE: refresh that on file and  --refresh or every X hrs (set in rc file).
 #           TODO: put the current --list output into the less pager
 #           DONE: only output 'Unresponsive hosts if there are some
-# 1.83	 (06-19-26)
-#        DONE: also, sep the unresponsive nodes to paste into the .clusterforkrc IGNORE line.
-#        DONE: put the 'unresponsive error messages on the same line as the node if possible
-#        DONE: (put the newline before the line is printed, instead of after.)
+# 1.83   (06-19-16) FIXED: doesn't seem to be ignoring the IGNORE line.
+#        (11.5.16) DONE: place unresponsive nodes into the IGNORE section or file
+#           TODO: refresh that on file and  --refresh or every X hrs (set in rc file).
+#           TODO: put the current --list output into the less pager
+#           DONE: only output 'Unresponsive hosts if there are some
+#	 DONE: also, sep the unresponsive nodes to paste into the .clusterforkrc IGNORE line.
+#    DONE: put the 'unresponsive error messages on the same line as the node if possible
+#    DONE: (put the newline before the line is printed, instead of after.)
 # 1.82 - (06-16-16) log unresponsive nodes to Summary file.
 # 1.81 - (04-19-16) add md5 checksum filtering of output files into identical-content  dirs and symlink the output file names to the correct ones.
 # 1.80 - (2-10-14) added filters to strip annoying spurious errors from out put, especially
@@ -101,7 +108,7 @@ use vars qw( $HOST $CMD $DATEDIR $FORK $DATE $DATEDIR $SHORT_CMD $PWD
 
 $version = <<VERSION;
 
-clusterfork.pl version 1.84, Nov 08, 2016
+clusterfork.pl version 1.86, Sept 10, 2017
 <http://moo.nac.uci.edu/~hjm/clusterfork/index.html>
 Copyright Harry Mangalam, OIT, UC Ivine, 2010-2016
 <harry.mangalam\@uci.edu>, <hjmangalam\@gmail.com>
@@ -135,7 +142,8 @@ $TIMEOUT     = 3600;
 $TIMEOUT_STR = "";
 $SKIP        = "";
 $REFRESH     = 0; # don't refresh
-$REFRESHPERIOD = 24; # in hrs, if not overwrit by the config file.
+$REFRESHPERIOD = 4; # in hrs, if not overwrit by the config file.
+$IGNOREFILE = "$HOME/.clusterfork-ignore";  # or put this in the config file?
 
 &GetOptions(
   "help!"    => \$help,          # dump usage, tips
@@ -157,6 +165,10 @@ $REFRESHPERIOD = 24; # in hrs, if not overwrit by the config file.
 );
 
 if ($ver) { print $version; exit; }
+# dump usage if it's indicated.
+# if ( ( $#ARGV < 0 || $help ) && ( !defined $listgroup ) ) {
+#   usage();
+# }
 
 # rationalizing $fork status
 if ( $fork == 0 ) {
@@ -230,8 +242,9 @@ if ( $configfile ne "" ) {
 	the shared keys should only have to be installed once in
 	/home/\$USER/.ssh/authorized_keys.
 
-	Please edit the ~/.clusterforkrc template that's just been written so that
-	the next time things go smoother.\n
+	Please edit the ~/.clusterforkrc template that's just been written to 
+	correspond with your situation.  You can also define multiple config 
+	files and point to them with the '--config' option.
 
 FIRSTTIME
 
@@ -252,7 +265,7 @@ FIRSTTIME
 
     # emails to notify of newly installed packages
     # Note that you need to escape the '\@' in the list below.
-    EMAIL_LIST = "hmangala\@uci.edu, jsaska\@uci.edu, lopez\@uci.edu"
+    EMAIL_LIST = "hmangala\@uci.edu, lopez\@uci.edu"
 
     # how many IP addresses to list on a line - 5 is pretty good.
     IPLISTWIDTH = 5
@@ -262,9 +275,9 @@ FIRSTTIME
     # use fully qualified path; not '~/cf'.
     RESULTS_DIR = "/home/hmangala/cf"
 
-    # REFRESHPERIOD is the period that cf will automatically re-generate the IGNORE hosts file.
+    # REFRESHPERIOD is the period (in hours) that cf will automatically re-generate the IGNORE hosts file.
     # This can be over-ridden by using --refresh, which will force this process 
-    REFRESHPERIOD = 24
+    REFRESHPERIOD = 4
     
     # command to install apps - if this is found in the command, triggers a routine to
     # email admins with updated install info.
@@ -344,10 +357,6 @@ SKELETON
   exit(0);
 }
 
-# dump usage if it's indicated.
-if ( ( $#ARGV < 0 || $help ) && ( !defined $listgroup ) ) {
-  usage();
-}
 
 # Now dump the cfg to see how it looks
 #if ($DEBUG) {%CFG = $cfg->vars();}
@@ -355,6 +364,12 @@ if ( ( $#ARGV < 0 || $help ) && ( !defined $listgroup ) ) {
 %CFG = $cfg->vars();    # load %CFG with all the vars from the config file.
 
 # if (defined $ARGV[0]) {$CMD = $ARGV[0];} # the CMD should be the only thing that's not provided by getopt
+
+if ($ver) { print $version; exit; }
+# dump usage if it's indicated.
+if ( ( $#ARGV < 0 || $help ) && ( !defined $listgroup ) ) {
+  usage();
+}
 
 $PWD = `pwd`;
 chomp $PWD;
@@ -389,13 +404,12 @@ if ( defined $RESULTS_DIR && $RESULTS_DIR ne "" ) {    # attempt to make the dir
   $RESULTS_DIR = "";
 }    # results will be written in the current dir.
 
-# try to read the IGNOREfile ($HOME/.clusterfork-ignore)
-$IGNOREFILE = "$HOME/.clusterfork-ignore";  # or put this in the config file?
+# try to read the IGNOREfile (usually $HOME/.clusterfork-ignore, set above)
 # need to stat it to get the time.
 if (-e $IGNOREFILE && -r $IGNOREFILE) {
     my $fileagehrs = ((time()) - (stat($IGNOREFILE))[9]) / 3600;
     #print "DEBUG: fileagehrs: $fileagehrs REFRESHPERIOD: $REFRESHPERIOD REFRESH: $REFRESH\n";
-    if ($fileagehrs < $REFRESHPERIOD && $REFRESH != 1) { # if $REFRESH == 1, refresh regardless and skip this part.
+    if ($fileagehrs <= $REFRESHPERIOD && $REFRESH != 1) { # if $REFRESH == 1, refresh regardless and skip this part.
         open IF, "<$IGNOREFILE"  or die "Can't open the IGNORE file[$IGNOREFILE]\n";
         #my $cnt = 0;
         while (<IF>) {
@@ -407,12 +421,15 @@ if (-e $IGNOREFILE && -r $IGNOREFILE) {
                 $DONE{$A[$r]} = 1; 
                 #print "DEBUG: IGNORE hostnames going into DONE: [$A[$r]]\n";
                 $r++; 
-            } # this only records hostanmes not IP#s, is that enough?
+            } # this only records hostnames not IP#s, is that enough?
             
             #while ($r < $N) {$IGS[($count + $r)] = $A[$r]; }
             #$cnt += $r; # to step up to last value as the base for the next line.
         }
     } # so now we've entered all the hosts in the IGNORE file into IGS
+    if ($fileagehrs > $REFRESHPERIOD || $REFRESH) { # if older or demand a refresh delete it
+        unlink $IGNOREFILE or die "ERROR: Can't unlink [$IGNOREFILE].  Permissions??\n";
+    }
 }
 # if user asked for a refresh, or the file is older than the REFRESHPERIOD, 
 # or if it doesn't exist, then the sequence is as done previously.  
@@ -505,7 +522,7 @@ CMDLINE
   my $left = my $right = 0;
   $NOIPR = 0;
   foreach $HOST (@TARGET) {
-    print "CHECKING:  HOST: $HOST  DONE entry: $DONE{$HOST}";
+#    print "CHECKING:  HOST: $HOST  DONE entry: $DONE{$HOST}";
     if ( !defined $DONE{$HOST} ) {
       $IPRHA{$IPGRP}[ $left++ ] = $IParr[ $right++ ];
       &host_loop( $HOST, $CMD, $DATEDIR, $FORK, $PIDFILE, %UNRESP );
@@ -848,20 +865,23 @@ if ( $FORK eq "FORK" ) {
       symlink "$tlfn","$dfn" ;
     }
   }
-
-  # print the unresponsive nodes as well.
-#  my $szhash = keys %UNRESP;
+   
   if ((keys %UNRESP) > 0) {
-    open IGNORE, ">>$HOME/.clusterfork-ignore" or die "ERROR: Can't write ignore to [$HOME/.clusterfork-ignore]\n";
-    print OUT "\n\nUnresponsive Hosts to be recorded in the ignore file for next run.\n";
-        foreach $key (keys %UNRESP) { 
-            print OUT " $key "; 
-            print IGNORE "$key ";
-        }
-        print IGNORE "\n";
+    open IGNORE, ">>$IGNOREFILE" or die "ERROR: Can't write ignore to [$IGNOREFILE]\n";
+    # next 3 lines prefix the ignore hosts with the epoch time and human-readable time
+    # tho not sure it's needed and will require some input mods above (~line 390).
+    # however, have changed the behavior to delete the file and regenrate if use --refresh
+    #my $epochtime = time();
+    #my $hrtime = `date`; chomp $hrtime;
+    #print IGNORE "$epochtime\t$hrtime\t";
+    print OUT "\n\nUnresponsive Hosts:\n";
+    foreach $key (keys %UNRESP) { 
+        print OUT " $key "; 
+        print IGNORE "$key ";
+    }
+    print IGNORE "\n";
     close IGNORE;
-} else {print OUT"\n\nCheck $HOME/.clusterfork-ignore for list of currently ignored hosts.
-Use '--refresh' to regen the list\n";}
+} else {print OUT"\n\nCheck $IGNOREFILE for list of currently ignored hosts.\n";}
 close OUT;
 # delete all the empty files now, so they're not left in the results dir if user doesn't want to see them.
   opendir( DIR, "$DATEDIR" );
@@ -1050,7 +1070,7 @@ sub host_loop( $$$$$$ ) {
   my $IP_NMBR  = "";
   my $HOSTNAME = "";
   ( $HOSTNAME, $IP_NMBR ) = &host_lookup($HOST);
-  print "\nHost: $HOSTNAME [$IP_NMBR]";
+  print "\nHost:\t$HOSTNAME\t[$IP_NMBR]\t";
   my $PING_RESPONSE = `ping -c1 $HOST`;
 
   if ( $PING_RESPONSE =~ /100% packet loss/ || $PING_RESPONSE =~ /unknown/ ) {
@@ -1233,7 +1253,7 @@ HELP
   close HLP;
   system("less -S $helpfile");
   unlink $helpfile;
-  die "Did that help?.\n";
+  die "Did that help? Email <hjmangalam\@gmail.com> if it didn't.\n";
 }
 
 sub trim($) {
