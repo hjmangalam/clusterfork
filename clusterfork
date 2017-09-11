@@ -4,7 +4,8 @@
 # search for 'sub usage'
 
 # don't forget!!  using git!
-# git add  clusterfork                # stage the file for the commit
+# cp ~/bin/clusterfork_1.xx.pl ~/gits/clusterfork
+# git add  clusterfork              # stage the file for the commit (and other changed files)
 # git commit -m 'commit message'    # stages the commit
 # git push                          # pushes the commit to github
 
