@@ -12,7 +12,7 @@
 # after significant changes, update the tarball and cp to moo for distribution; update the github
 # cd ;  scp ~bin/clusterfork  moo:~/public_html/clusterfork; ssh moo 'scp ~/public_html/clusterfork hmangala@hpcs:~/bin
 # cd ~/gits/clusterfork; cp ~/bin/clusterfork .; git add clusterfork; git commit -m 'commit message'; git push
-
+# 1.87   TODO option to omit md5/wc sorting if you know they're all going to be different.
 # 1.86   (09-10-17 Fixed sometimes odd behavior with --refresh, .clusterfork-ignore
 #        so that --refresh now deletes and then refreshes .clusterfork-ignore, so that
 #        ONLY freshly ignorable hosts are exist in the .clusterfork-ignore file.
@@ -97,7 +97,7 @@ use vars qw( $HOST $CMD $DATEDIR $FORK $DATE $DATEDIR $SHORT_CMD $PWD
   $HOSTLIST $IPFILE $CLUSTER $IP_NMBR $md5list  $wclist %md5h %wch $HOME
   @md5 @wc $tmp @L $N $DEBUG $line $missing_nodes $QHOST $QFILE %APP $RPMDB
   $ALLNODESFILE $cfg %CFG $i $DEBUG $rpmlist $EMAIL_LIST $iter $version $DELAY 
-  $DELAY_STR $SCRIPT $LOG
+  $DELAY_STR $SCRIPT $LOG $NOSORT
   $help $iprange $target $listgroup $configfile  $fork $nofork $cfg %IPRANGE
   $sz_lrng @lrng @l $n $u $exp $ttl_IPs $IPGRP $localrange %IPRHA $GRP $PRI_LIST
   @pri_names $nbr_pris $ttl $e $f $Ntarget @TARGET @TARGET_IPS @IParr $key $Nels
@@ -109,7 +109,7 @@ use vars qw( $HOST $CMD $DATEDIR $FORK $DATE $DATEDIR $SHORT_CMD $PWD
 
 $version = <<VERSION;
 
-clusterfork.pl version 1.86, Sept 10, 2017
+clusterfork.pl version 1.87, June 8, 2018
 <http://moo.nac.uci.edu/~hjm/clusterfork/index.html>
 Copyright Harry Mangalam, OIT, UC Ivine, 2010-2016
 <harry.mangalam\@uci.edu>, <hjmangalam\@gmail.com>
@@ -138,6 +138,7 @@ $hosts      = "NULL";
 $DELAY       = 0;      # the number of s to delay between issuing commands.
 $DELAY_STR   = "";
 $SCRIPT      = 0;
+$NOSORT      = 0;  # default is to sort the output
 $LOG         = 0;
 $TIMEOUT     = 3600;
 $TIMEOUT_STR = "";
@@ -159,8 +160,9 @@ $IGNOREFILE = "$HOME/.clusterfork-ignore";  # or put this in the config file?
   "version!"    => \$ver,
   "hosts=s"     => \$hosts,
   "debug!"      => \$DEBUG,
-  "refresh!"     => \$REFRESH,      # force the refresh of unresponsive hosts.
-  "script!"     => \$SCRIPT,
+  "refresh!"     => \$REFRESH,     # force the refresh of unresponsive hosts.
+  "script!"     => \$SCRIPT,       # scripts cf run, returns fqdp to results
+  "nosort!"     => \$NOSORT,       # skips the md5/wc/symlinking of results
   "timeout=s"   => \$TIMEOUT_STR,    # timeout, use same format, processing as delay, below
   "delay=s"     => \$DELAY_STR,      # delay betw issuing commands (to prevent saturation)
 );
@@ -854,6 +856,13 @@ if ( $FORK eq "FORK" ) {
     # need to make a dirname like  #_#-#-#_#
     # where                 #ofhosts_-wc- _suffix#
     # could take the last 4 chars of the md5 hash string
+
+    
+    
+    #############  TESTING this chunk ####################
+    my $symlinks = 0;
+    if (! $NOSORT) {
+    
     my $suffix = substr $key, -4;
     # so create the dirname string
     my $dn = "$DATEDIR" . "/" . "$nmbr" . "_" . "$wch{$l[0]}" . "_" . "$suffix";
@@ -864,6 +873,7 @@ if ( $FORK eq "FORK" ) {
       my $dfn = $dn . "/" . $ll[$i]; 
       my $tlfn = $DATEDIR . "/" . $ll[$i];
       symlink "$tlfn","$dfn" ;
+    }  
     }
   }
    
@@ -1216,6 +1226,9 @@ Usage:  {sudo} clusterfork {options} 'remote command'
           output.  Returns the fully qualified path to the output dir.
           ie: RESULTS=`cf --script --tar=GROUPNAME '/path/to/command'`
           Verify that the command works before you run it with --script.
+          
+      --nosort prevents the sorting of results ( as when you know all the 
+          results will be different.  Simplifies output.
 
       --timeout #  (or #s, #m, #h)
           sets the timout period, especially when using --script so that
